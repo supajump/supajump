@@ -17,12 +17,12 @@ create table
     public.invitations (
         -- the id of the invitation
         id uuid primary key not null default gen_random_uuid (),
-        -- what role should invitation accepters be given in this organization
-        org_member_role text not null,
+        -- what role should invitation accepters be given in this organization (UUID reference to roles table)
+        org_member_role uuid not null references roles (id) on delete cascade,
         -- the organization the invitation is for
         org_id text not null references organizations (id) on delete cascade,
         -- unique token used to accept the invitation
-        token text unique not null default grail.generate_token (30),
+        token text unique not null default supajump.generate_token (30),
         -- the email address of the user who created the invitation
         email text,
         -- who created the invitation
@@ -39,9 +39,6 @@ create table
 
 alter table public.invitations
 add constraint check_invitation_type check (invitation_type in ('one-time', '24-hour'));
-
-alter table public.invitations
-add constraint check_org_member_role check (org_member_role in ('owner', 'admin', 'member'));
 
 alter table public.invitations enable row level security;
 
@@ -74,7 +71,7 @@ alter table public.invitations enable row level security;
 create trigger set_invitations_timestamp before insert
 or
 update on public.invitations for each row
-execute function grail.trigger_set_timestamps ();
+execute function supajump.trigger_set_timestamps ();
 
 /**
  * This funciton fills in organization info and inviting user email
@@ -82,7 +79,7 @@ execute function grail.trigger_set_timestamps ();
  * accepting.  It allows us to avoid complex permissions on organizations
  */
 create
-or replace function grail.trigger_set_invitation_details () returns trigger as $$
+or replace function supajump.trigger_set_invitation_details () returns trigger as $$
 BEGIN
     NEW.invited_by_user_id = auth.uid();
     NEW.org_name = (select name from public.organizations where id = NEW.org_id);
@@ -91,7 +88,7 @@ END
 $$ language plpgsql;
 
 create trigger trigger_set_invitation_details before insert on public.invitations for each row
-execute function grail.trigger_set_invitation_details ();
+execute function supajump.trigger_set_invitation_details ();
 
 -- enable RLS on invitations
 alter table public.invitations enable row level security;
@@ -148,14 +145,14 @@ set
     search_path = public as $$
 declare
     v_lookup_org_id text;
-    v_new_member_role text;
+    v_new_member_role_id uuid;
     v_project_roles jsonb;
     v_project jsonb;
     v_project_id text;
     v_project_role text;
 begin
     select org_id, org_member_role, project_member_roles
-    into v_lookup_org_id, v_new_member_role, v_project_roles
+    into v_lookup_org_id, v_new_member_role_id, v_project_roles
     from invitations
     where token = lookup_invitation_token
       and created_at > now() - interval '24 hours';
@@ -167,7 +164,7 @@ begin
     if v_lookup_org_id is not null then
         -- we've validated the token is real, so grant the user access
         insert into org_memberships (org_id, user_id, org_member_role)
-        values (v_lookup_org_id, auth.uid(), v_new_member_role);
+        values (v_lookup_org_id, auth.uid(), v_new_member_role_id);
 
         -- Create project memberships based on the project_roles JSONB column
         if v_project_roles is not null then
@@ -237,7 +234,7 @@ execute on function lookup_invitation (text) to authenticated;
 create
 or replace function create_org_invite (
     input_org_id text,
-    org_member_role text,
+    org_member_role_id uuid,
     invitee_email text,
     invitation_type text,
     project_member_roles JSONB
@@ -252,6 +249,8 @@ DECLARE
     project jsonb;
     project_id text;
     project_count int;
+    owner_role_id uuid;
+    admin_role_id uuid;
 BEGIN
     -- Input validation for input_org_id
     IF is_valid_org_id(input_org_id) IS NOT TRUE THEN
@@ -263,6 +262,19 @@ BEGIN
         RAISE EXCEPTION 'org_id does not correspond to an existing organization.';
     END IF;
 
+    -- Validate that the role exists and is an organization role
+    IF NOT EXISTS (SELECT 1 FROM roles WHERE id = org_member_role_id AND scope = 'organization') THEN
+        RAISE EXCEPTION 'Invalid organization role ID';
+    END IF;
+
+    -- Get role IDs for admin validation
+    owner_role_id := supajump.get_role_id_by_name('owner', 'organization');
+    admin_role_id := supajump.get_role_id_by_name('admin', 'organization');
+
+    IF owner_role_id IS NULL OR admin_role_id IS NULL THEN
+        RAISE EXCEPTION 'Required organization roles (owner, admin) not found in roles table';
+    END IF;
+
     -- Input validation for invitee_email
     IF NOT (invitee_email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$') THEN
         RAISE EXCEPTION 'Invalid Email';
@@ -271,13 +283,13 @@ BEGIN
     -- Retrieve the inviter's user ID using auth.uid()
     inviter_id := auth.uid();
 
-    -- Check if the inviter is a member of the organization with org_member_role in ('owner', 'admin')
+    -- Check if the inviter is a member of the organization with admin or owner role
     SELECT EXISTS (
         SELECT 1
         FROM public.org_memberships om
         WHERE om.user_id = inviter_id
           AND om.org_id = create_org_invite.input_org_id
-          AND om.org_member_role IN ('owner', 'admin')
+          AND om.org_member_role IN (owner_role_id, admin_role_id)
     ) INTO inviter_admin;
 
     IF NOT inviter_admin THEN
@@ -359,7 +371,7 @@ BEGIN
 
     -- All checks passed, create the invitation
     INSERT INTO invitations(org_id, org_member_role, invited_by_user_id, email, invitation_type, project_member_roles)
-    VALUES (create_org_invite.input_org_id, create_org_invite.org_member_role, inviter_id, create_org_invite.invitee_email, create_org_invite.invitation_type, project_member_roles)
+    VALUES (create_org_invite.input_org_id, org_member_role_id, inviter_id, create_org_invite.invitee_email, create_org_invite.invitation_type, project_member_roles)
     RETURNING token INTO result;
 
     RETURN result;
@@ -367,7 +379,7 @@ END;
 $$ language plpgsql security definer;
 
 grant
-execute on function create_org_invite (text, text, text, text, jsonb) to authenticated;
+execute on function create_org_invite (text, uuid, text, text, jsonb) to authenticated;
 
 create
 or replace function public.lookup_active_invitations () returns table (

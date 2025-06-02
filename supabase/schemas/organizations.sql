@@ -107,7 +107,8 @@ execute function public.protect_organization_fields ();
 create
 or replace function public.current_user_org_member_role (lookup_org_id text) returns jsonb language plpgsql as $$
     declare
-      user_org_member_role text;
+      user_org_member_role_id uuid;
+      user_org_member_role_name text;
       is_organization_primary_owner boolean;
       is_personal boolean;
     begin
@@ -117,24 +118,26 @@ or replace function public.current_user_org_member_role (lookup_org_id text) ret
       end if;
 
       select
-        org_member_role
-      into user_org_member_role
-      from public.org_memberships
-      where user_id = auth.uid() and org_memberships.org_id = lookup_org_id;
+        om.org_member_role, r.name
+      into user_org_member_role_id, user_org_member_role_name
+      from public.org_memberships om
+      join public.roles r on r.id = om.org_member_role
+      where om.user_id = auth.uid() and om.org_id = lookup_org_id;
 
       select
-        (primary_owner_user_id = auth.uid()), (org_type = 'personal')
+        (primary_owner_user_id = auth.uid()), (type = 'personal')
       into
         is_organization_primary_owner, is_personal
       from public.organizations
       where id = lookup_org_id;
 
-      if user_org_member_role is null then
+      if user_org_member_role_id is null then
         return null;
       end if;
 
       return jsonb_build_object(
-        'org_member_role', user_org_member_role,
+        'org_member_role_id', user_org_member_role_id,
+        'org_member_role_name', user_org_member_role_name,
         'is_primary_owner', is_organization_primary_owner,
         'is_personal', is_personal
       );
@@ -145,7 +148,7 @@ create
 or replace function public.update_org_memberships_role (
     org_id text,
     user_id uuid,
-    new_org_member_role text,
+    new_org_member_role_id uuid,
     make_primary_owner boolean
 ) returns void language plpgsql security definer
 set
@@ -154,11 +157,27 @@ set
       is_organization_owner boolean;
       is_organization_primary_owner boolean;
       changing_primary_owner boolean;
+      owner_role_id uuid;
     begin
+        -- Get owner role ID for validation
+        owner_role_id := supajump.get_role_id_by_name('owner', 'organization');
+
+        if owner_role_id is null then
+          raise exception 'Owner role not found in roles table';
+        end if;
+
+        -- Validate that the new role exists and is an organization role
+        if not exists (select 1 from roles where id = new_org_member_role_id and scope = 'organization') then
+          raise exception 'Invalid organization role ID';
+        end if;
+
         -- check if the user is an owner, and if they are, allow them to update the role
-        select (update_org_memberships_role.org_id in
-          ( select supajump.get_organizations_for_current_user('owner') as get_organizations_for_current_user))
-        into is_organization_owner;
+        select exists(
+          select 1 from public.org_memberships om
+          where om.user_id = auth.uid() 
+            and om.org_id = update_org_memberships_role.org_id
+            and om.org_member_role = owner_role_id
+        ) into is_organization_owner;
 
         if not is_organization_owner then
           raise exception 'you must be an owner of the organization to update a users role';
@@ -171,7 +190,7 @@ set
         	raise exception 'you must be the primary owner of the organization to change the primary owner';
         end if;
 
-        update public.org_memberships set org_member_role = new_org_member_role where org_memberships.org_id = update_org_memberships_role.org_id and org_memberships.user_id = update_org_memberships_role.user_id;
+        update public.org_memberships set org_member_role = new_org_member_role_id where org_memberships.org_id = update_org_memberships_role.org_id and org_memberships.user_id = update_org_memberships_role.user_id;
 
         if make_primary_owner = true then
           -- first we see if the current user is the owner, only they can do this
@@ -185,44 +204,44 @@ set
 $$;
 
 create
-or replace function supajump.get_organizations_for_current_user (passed_in_role text default null) returns setof text language sql security definer
+or replace function supajump.get_organizations_for_current_user (passed_in_role_id uuid default null) returns setof text language sql security definer
 set
     search_path to 'public' as $$
-  select org_id
-  from public.org_memberships wu
-  where wu.user_id = auth.uid()
+  select om.org_id
+  from public.org_memberships om
+  where om.user_id = auth.uid()
     and
       (
-          wu.org_member_role = passed_in_role
-          or passed_in_role is null
+          om.org_member_role = passed_in_role_id
+          or passed_in_role_id is null
       )
 $$;
 
-revoke all on function supajump.get_organizations_for_current_user (passed_in_role text)
+revoke all on function supajump.get_organizations_for_current_user (passed_in_role_id uuid)
 from
     public;
 
-grant all on function supajump.get_organizations_for_current_user (passed_in_role text) to authenticated;
+grant all on function supajump.get_organizations_for_current_user (passed_in_role_id uuid) to authenticated;
 
 create
-or replace function supajump.get_organizations_for_current_user_matching_roles (passed_in_roles text[] default null) returns setof text language sql security definer
+or replace function supajump.get_organizations_for_current_user_matching_roles (passed_in_role_ids uuid[] default null) returns setof text language sql security definer
 set
     search_path to 'public' as $$
-    select org_id
-    from public.org_memberships wu
-    where wu.user_id = auth.uid()
+    select om.org_id
+    from public.org_memberships om
+    where om.user_id = auth.uid()
       and
         (
-          wu.org_member_role = ANY(passed_in_roles)
-          or passed_in_roles is null
+          om.org_member_role = ANY(passed_in_role_ids)
+          or passed_in_role_ids is null
         )
 $$;
 
-revoke all on function supajump.get_organizations_for_current_user_matching_roles (passed_in_roles text[])
+revoke all on function supajump.get_organizations_for_current_user_matching_roles (passed_in_role_ids uuid[])
 from
     public;
 
-grant all on function supajump.get_organizations_for_current_user_matching_roles (passed_in_roles text[]) to authenticated;
+grant all on function supajump.get_organizations_for_current_user_matching_roles (passed_in_role_ids uuid[]) to authenticated;
 
 create
 or replace function supajump.is_set (field_name text) returns boolean language plpgsql as $$
@@ -234,66 +253,23 @@ begin
 end;
 $$;
 
-revoke all on function supajump.get_organizations_for_current_user (passed_in_role text)
-from
-    public;
-
-grant all on function supajump.get_organizations_for_current_user (passed_in_role text) to authenticated;
-
-create
-or replace function supajump.run_new_user_setup () returns trigger language plpgsql security definer
-set
-    search_path to 'public' as $$
-declare
-  first_organization_name  text;
-  first_org_id    text;
-  generated_user_name text;
-  default_organization_name text := 'Default';
-begin
-  -- first we setup the user profile
-  -- TODO: see if we can get the user's name from the auth.users table once we learn how oauth works
-  -- TODO: If no name is provided, use the first part of the email address
-  if new.email IS NOT NULL then
-    generated_user_name := split_part(new.email, '@', 1);
-  end if;
-
-    -- Check if generated_user_name is NULL or empty and assign default_organization_name if it is
-  if generated_user_name IS NULL or generated_user_name = '' then
-    generated_user_name := default_organization_name;
-  end if;
-
-
-  insert into public.profiles (id, user_name) values (new.id, generated_user_name);
-
-  -- only create the first organization if private organizations is enabled
-  -- if supajump.is_set('enable_personal_organizations') = true then
-  -- create the new users's personal organization
-  insert into public.organizations (primary_owner_user_id, type, name)
-  values (NEW.id, 'organization', generated_user_name)
-  returning id into first_org_id;
-
-  -- add them to the org_memberships table so they can act on it
-  insert into public.org_memberships (org_id, user_id, org_member_role)
-  values (first_org_id, NEW.id, 'owner');
-  -- end if;
-  return NEW;
-end;
-$$;
-
-revoke all on function supajump.run_new_user_setup ()
-from
-    public;
-
-grant all on function supajump.run_new_user_setup () to authenticated;
-
 create
 or replace function supajump.add_current_user_to_new_organization () returns trigger language plpgsql security definer
 set
     search_path to 'public' as $$
+  declare
+    owner_role_id uuid;
   begin
     if new.primary_owner_user_id = auth.uid() then
+      -- Get the owner role ID using helper function (internal use only)
+      owner_role_id := supajump.get_role_id_by_name('owner', 'organization');
+
+      if owner_role_id is null then
+        raise exception 'Owner role not found in roles table';
+      end if;
+
       insert into public.org_memberships (org_id, user_id, org_member_role)
-      values (NEW.id, auth.uid(), 'owner');
+      values (NEW.id, auth.uid(), owner_role_id);
     end if;
     return NEW;
   end;
@@ -415,3 +391,77 @@ execute function supajump.add_current_user_to_new_organization ();
 --             )
 --         )
 --     );
+create
+or replace function supajump.get_role_id_by_name (role_name text, role_scope text default 'organization') returns uuid language sql security definer
+set
+    search_path to 'public' as $$
+  select id
+  from roles
+  where name = role_name and scope = role_scope
+  limit 1
+$$;
+
+revoke all on function supajump.get_role_id_by_name (role_name text, role_scope text)
+from
+    public;
+
+grant all on function supajump.get_role_id_by_name (role_name text, role_scope text) to authenticated;
+
+create
+or replace function supajump.get_role_name_by_id (role_id uuid) returns text language sql security definer
+set
+    search_path to 'public' as $$
+  select name
+  from roles
+  where id = role_id
+  limit 1
+$$;
+
+revoke all on function supajump.get_role_name_by_id (role_id uuid)
+from
+    public;
+
+grant all on function supajump.get_role_name_by_id (role_id uuid) to authenticated;
+
+-- Convenience functions for applications to get role IDs by name
+create
+or replace function public.get_org_role_id (role_name text) returns uuid language sql security definer
+set
+    search_path to 'public' as $$
+  select id
+  from roles
+  where name = role_name and scope = 'organization'
+  limit 1
+$$;
+
+grant
+execute on function public.get_org_role_id (text) to authenticated;
+
+create
+or replace function public.get_team_role_id (role_name text) returns uuid language sql security definer
+set
+    search_path to 'public' as $$
+  select id
+  from roles
+  where name = role_name and scope = 'team'
+  limit 1
+$$;
+
+grant
+execute on function public.get_team_role_id (text) to authenticated;
+
+-- Convenience function to get organizations for current user by role name
+create
+or replace function public.get_organizations_for_current_user_by_role_name (role_name text) returns setof text language sql security definer
+set
+    search_path to 'public' as $$
+  select om.org_id
+  from public.org_memberships om
+  join public.roles r on r.id = om.org_member_role
+  where om.user_id = auth.uid()
+    and r.scope = 'organization'
+    and r.name = role_name
+$$;
+
+grant
+execute on function public.get_organizations_for_current_user_by_role_name (text) to authenticated;

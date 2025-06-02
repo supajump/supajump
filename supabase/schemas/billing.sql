@@ -26,7 +26,7 @@ alter table billing_customers enable row level security;
 --     using (
 --         org_id in (
 --             select
---                 grail.get_organizations_for_current_user () as org_ids
+--                 supajump.get_organizations_for_current_user () as org_ids
 --         )
 --     );
 -- No policies as this is a private table that the user must not have access to.
@@ -147,7 +147,7 @@ create table
         max_users integer default 1,
         max_teams integer default 2,
         max_projects integer default 2,
-        max_storage integer default 10,
+        max_storage integer default 10
     );
 
 alter table billing_subscriptions
@@ -174,7 +174,7 @@ alter table billing_subscriptions enable row level security;
 --     using (
 --         org_id in (
 --             select
---                 grail.get_organizations_for_current_user () as org_ids
+--                 supajump.get_organizations_for_current_user () as org_ids
 --         )
 --     );
 create
@@ -208,16 +208,16 @@ execute on function public.get_organization_billing_status (uuid) to authenticat
 service_role;
 
 /**
-Add config options to grail.config to setup the stripe requirements on new organizations
+Add config options to supajump.config to setup the stripe requirements on new organizations
  */
-alter table grail.config
+alter table supajump.config
 add column enable_organization_billing boolean not null default true;
 
-alter table grail.config
+alter table supajump.config
 add column billing_provider text default 'stripe';
 
-alter table grail.config
+alter table supajump.config
 add column stripe_default_trial_period_days integer default 30;
 
-alter table grail.config
+alter table supajump.config
 add column stripe_default_organization_price_id text references billing_prices;

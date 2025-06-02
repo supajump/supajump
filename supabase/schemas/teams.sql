@@ -73,10 +73,19 @@ execute function public.protect_team_fields ();
 create function supajump.add_current_user_to_new_team () returns trigger language plpgsql security definer
 set
     search_path = public as $$
+  declare
+    owner_role_id uuid;
   begin
     if new.primary_owner_user_id = auth.uid() then
+      -- Get the owner role ID for teams
+      owner_role_id := supajump.get_role_id_by_name('owner', 'team');
+
+      if owner_role_id is null then
+        raise exception 'Team owner role not found in roles table';
+      end if;
+
       insert into public.team_memberships (team_id, user_id, team_member_role)
-      values (new.id, auth.uid(), 'owner');
+      values (new.id, auth.uid(), owner_role_id);
     end if;
     return new;
   end;
@@ -97,7 +106,8 @@ execute function supajump.add_current_user_to_new_team ();
 create
 or replace function public.current_user_teams_member_role (lookup_team_id text) returns jsonb language plpgsql as $$
   declare
-    user_teams_member_role text;
+    user_teams_member_role_id uuid;
+    user_teams_member_role_name text;
     is_team_primary_owner boolean;
     is_type boolean;
   begin
@@ -106,17 +116,22 @@ or replace function public.current_user_teams_member_role (lookup_team_id text) 
       raise exception 'team_id is required';
     end if;
 
-    select team_member_role into user_teams_member_role from public.team_memberships where user_id = auth.uid() and team_memberships.team_id = lookup_team_id;
-    select primary_owner_user_id = auth.uid(), type into is_team_primary_owner, is_type from public.teams where id = lookup_team_id;
+    select tm.team_member_role, r.name
+    into user_teams_member_role_id, user_teams_member_role_name
+    from public.team_memberships tm
+    join public.roles r on r.id = tm.team_member_role
+    where tm.user_id = auth.uid() and tm.team_id = lookup_team_id;
 
-    if user_teams_member_role is null then
+    select primary_owner_user_id = auth.uid() into is_team_primary_owner from public.teams where id = lookup_team_id;
+
+    if user_teams_member_role_id is null then
       return null;
     end if;
 
     return jsonb_build_object(
-      'teams_member_role', user_teams_member_role,
-      'is_primary_owner', is_team_primary_owner,
-      'is_type', is_type
+      'teams_member_role_id', user_teams_member_role_id,
+      'teams_member_role', user_teams_member_role_name,
+      'is_primary_owner', is_team_primary_owner
     );
   end;
 $$;
@@ -124,40 +139,61 @@ $$;
 grant
 execute on function public.current_user_teams_member_role (text) to authenticated;
 
-/ * * * let 's you update a users role within an team if you are an owner of that team
-  **/
-create or replace function public.update_team_memberships_role(team_id text, user_id uuid,  new_teams_member_role text, make_primary_owner boolean)
-returns void
-security definer
-set search_path=public
-language plpgsql
-as $$
+/**
+ * lets you update a users role within a team if you are an owner of that team
+ */
+create
+or replace function public.update_team_memberships_role (
+    team_id text,
+    user_id uuid,
+    new_teams_member_role_id uuid,
+    make_primary_owner boolean
+) returns void security definer
+set
+    search_path = public language plpgsql as $$
   declare
     is_team_owner boolean;
     is_team_primary_owner boolean;
     changing_primary_owner boolean;
+    owner_role_id uuid;
   begin
+    -- Get owner role ID for validation
+    owner_role_id := supajump.get_role_id_by_name('owner', 'team');
+
+    if owner_role_id is null then
+      raise exception 'Team owner role not found in roles table';
+    end if;
+
+    -- Validate that the new role exists and is a team role
+    if not exists (select 1 from roles where id = new_teams_member_role_id and scope = 'team') then
+      raise exception 'Invalid team role ID';
+    end if;
+
     -- check if the user is an owner, and if they are, allow them to update the role
-    select (update_team_memberships_role.team_id in ( select supajump.get_teams_for_current_user(' owner ') as get_teams_for_current_user)) into is_team_owner;
+    select exists(
+      select 1 from public.team_memberships tm
+      where tm.user_id = auth.uid() 
+        and tm.team_id = update_team_memberships_role.team_id
+        and tm.team_member_role = owner_role_id
+    ) into is_team_owner;
 
     if not is_team_owner then
-      raise exception ' you must be an owner of the team to
-update a users role ';
+      raise exception 'you must be an owner of the team to update a users role';
     end if;
 
     -- check if the user being changed is the primary owner, if so its not allowed
     select primary_owner_user_id = auth.uid(), primary_owner_user_id = update_team_memberships_role.user_id into is_team_primary_owner, changing_primary_owner from public.teams where id = update_team_memberships_role.team_id;
 
     if changing_primary_owner = true and is_team_primary_owner = false then
-      raise exception ' you must be the primary owner of the team to change the primary owner ';
+      raise exception 'you must be the primary owner of the team to change the primary owner';
     end if;
 
-    update public.team_memberships set team_member_role = new_teams_member_role where team_memberships.team_id = update_team_memberships_role.team_id and team_memberships.user_id = update_team_memberships_role.user_id;
+    update public.team_memberships set team_member_role = new_teams_member_role_id where team_memberships.team_id = update_team_memberships_role.team_id and team_memberships.user_id = update_team_memberships_role.user_id;
 
     if make_primary_owner = true then
       -- first we see if the current user is the owner, only they can do this
       if is_team_primary_owner = false then
-        raise exception ' you must be the primary owner of the team to change the primary owner ';
+        raise exception 'you must be the primary owner of the team to change the primary owner';
       end if;
 
       update public.teams set primary_owner_user_id = update_team_memberships_role.user_id where id = update_team_memberships_role.team_id;
@@ -165,43 +201,60 @@ update a users role ';
   end;
 $$;
 
-grant execute on function public.update_team_memberships_role(text, uuid, text, boolean) to authenticated;
+grant
+execute on function public.update_team_memberships_role (text, uuid, uuid, boolean) to authenticated;
 
 /**
-  * returns team_ids that the current user is a member of. if you pass in a role,
-  * it' ll only return teams that the user is a member of
-with
-    that role.* / create
-    or replace function supajump.get_teams_for_current_user (passed_in_role text default null) returns setof text language sql security definer
+ * returns team_ids that the current user is a member of. if you pass in a role,
+ * it'll only return teams that the user is a member of with that role.
+ */
+create
+or replace function supajump.get_teams_for_current_user (passed_in_role_id uuid default null) returns setof text language sql security definer
 set
     search_path = public as $$
-  select team_id
-  from public.team_memberships wu
-  where wu.user_id = auth.uid()
-  and (
-      wu.team_member_role = passed_in_role
-      or passed_in_role is null
+  select tm.team_id
+  from public.team_memberships tm
+  where tm.user_id = auth.uid()
+    and (
+        tm.team_member_role = passed_in_role_id
+        or passed_in_role_id is null
+      )
+$$;
+
+grant
+execute on function supajump.get_teams_for_current_user (uuid) to authenticated;
+
+create
+or replace function supajump.get_teams_for_current_user_matching_roles (passed_in_role_ids uuid[] default null) returns setof text language sql security definer
+set
+    search_path = public as $$
+  select tm.team_id
+  from public.team_memberships tm
+  where tm.user_id = auth.uid()
+    and (
+      tm.team_member_role = ANY(passed_in_role_ids)
+      or passed_in_role_ids is null
     )
 $$;
 
 grant
-execute on function supajump.get_teams_for_current_user (text) to authenticated;
+execute on function supajump.get_teams_for_current_user_matching_roles (uuid[]) to authenticated;
 
+-- Convenience function to get teams for current user by role name
 create
-or replace function supajump.get_teams_for_current_user_matching_roles (passed_in_roles text[] default null) returns setof text language sql security definer
+or replace function public.get_teams_for_current_user_by_role_name (role_name text) returns setof text language sql security definer
 set
     search_path = public as $$
-  select team_id
-  from public.team_memberships wu
-  where wu.user_id = auth.uid()
-  and (
-    wu.team_member_role = ANY(passed_in_roles)
-    or passed_in_roles is null
-  )
+  select tm.team_id
+  from public.team_memberships tm
+  join public.roles r on r.id = tm.team_member_role
+  where tm.user_id = auth.uid()
+    and r.scope = 'team'
+    and r.name = role_name
 $$;
 
 grant
-execute on function supajump.get_teams_for_current_user_matching_roles (text[]) to authenticated;
+execute on function public.get_teams_for_current_user_by_role_name (text) to authenticated;
 
 -- create a team and add the current user as the owner
 create
@@ -210,13 +263,21 @@ set
     search_path = public as $$
   declare
     new_team_id text;
+    owner_role_id uuid;
   begin
+    -- Get the owner role ID for teams
+    owner_role_id := supajump.get_role_id_by_name('owner', 'team');
+
+    if owner_role_id is null then
+      raise exception 'Team owner role not found in roles table';
+    end if;
+
     insert into public.teams (name, primary_owner_user_id)
     values (team_name, auth.uid())
     returning id into new_team_id;
 
     insert into public.team_memberships (team_id, user_id, team_member_role)
-    values (new_team_id, auth.uid(), 'owner');
+    values (new_team_id, auth.uid(), owner_role_id);
 
     return new_team_id;
   end;
