@@ -7,14 +7,14 @@
  * access to the team.
  */
 create table
-  public.teams (
-    id text primary key default public.nanoid (),
-    created_at timestamp with time zone default now(),
-    updated_at timestamp with time zone,
-    org_id text not null references organizations (id) on delete cascade,
-    primary_owner_user_id uuid not null references auth.users (id),
-    name text not null
-  );
+    public.teams (
+        id text primary key default public.nanoid (),
+        created_at timestamp with time zone default now(),
+        updated_at timestamp with time zone,
+        org_id text not null references organizations (id) on delete cascade,
+        primary_owner_user_id uuid not null references auth.users (id),
+        name text not null
+    );
 
 alter table teams enable row level security;
 
@@ -25,14 +25,14 @@ alter table teams enable row level security;
  * the team member role is used to determine the role of the user within the team.
  */
 create table
-  public.team_memberships (
-    id uuid primary key default uuid_generate_v4 (),
-    created_at timestamp with time zone default now(),
-    updated_at timestamp with time zone,
-    team_id text not null references teams (id) on delete cascade,
-    user_id uuid not null references auth.users (id) on delete cascade,
-    unique (team_id, user_id)
-  );
+    public.team_memberships (
+        id uuid primary key default uuid_generate_v4 (),
+        created_at timestamp with time zone default now(),
+        updated_at timestamp with time zone,
+        team_id text not null references teams (id) on delete cascade,
+        user_id uuid not null references auth.users (id) on delete cascade,
+        unique (team_id, user_id)
+    );
 
 alter table team_memberships enable row level security;
 
@@ -40,13 +40,13 @@ alter table team_memberships enable row level security;
 -- Team Member Roles
 -- ────────────────────────
 create table
-  team_member_roles (
-    id uuid primary key default gen_random_uuid (),
-    role_id uuid references roles (id) on delete cascade,
-    team_member_id uuid references team_memberships (id) on delete cascade,
-    team_id text not null references teams (id) on delete cascade,
-    unique (role_id, team_member_id)
-  );
+    team_member_roles (
+        id uuid primary key default gen_random_uuid (),
+        role_id uuid references roles (id) on delete cascade,
+        team_member_id uuid references team_memberships (id) on delete cascade,
+        team_id text not null references teams (id) on delete cascade,
+        unique (role_id, team_member_id)
+    );
 
 alter table team_member_roles enable row level security;
 
@@ -84,7 +84,7 @@ execute function public.protect_team_fields ();
  */
 create function supajump.add_current_user_to_new_team () returns trigger language plpgsql security definer
 set
-  search_path = public as $$
+    search_path = public as $$
   declare
     owner_role_id uuid;
     new_member_id uuid;
@@ -170,13 +170,13 @@ execute on function public.current_user_teams_member_role (text) to authenticate
  */
 create
 or replace function public.update_team_memberships_role (
-  team_id text,
-  user_id uuid,
-  new_teams_member_role_ids uuid[],
-  make_primary_owner boolean
+    team_id text,
+    user_id uuid,
+    new_teams_member_role_ids uuid[],
+    make_primary_owner boolean
 ) returns void security definer
 set
-  search_path = public language plpgsql as $$
+    search_path = public language plpgsql as $$
   declare
     is_team_owner boolean;
     is_team_primary_owner boolean;
@@ -259,7 +259,7 @@ execute on function public.update_team_memberships_role (text, uuid, uuid[], boo
 create
 or replace function supajump.get_teams_for_current_user (passed_in_role_id uuid default null) returns setof text language sql security definer
 set
-  search_path = public as $$
+    search_path = public as $$
   select distinct tm.team_id
   from public.team_memberships tm
   join public.team_member_roles tmr on tmr.team_member_id = tm.id
@@ -276,7 +276,7 @@ execute on function supajump.get_teams_for_current_user (uuid) to authenticated;
 create
 or replace function supajump.get_teams_for_current_user_matching_roles (passed_in_role_ids uuid[] default null) returns setof text language sql security definer
 set
-  search_path = public as $$
+    search_path = public as $$
   select distinct tm.team_id
   from public.team_memberships tm
   join public.team_member_roles tmr on tmr.team_member_id = tm.id
@@ -294,7 +294,7 @@ execute on function supajump.get_teams_for_current_user_matching_roles (uuid[]) 
 create
 or replace function public.get_teams_for_current_user_by_role_name (role_name text) returns setof text language sql security definer
 set
-  search_path = public as $$
+    search_path = public as $$
   select distinct tm.team_id
   from public.team_memberships tm
   join public.team_member_roles tmr on tmr.team_member_id = tm.id
@@ -311,7 +311,7 @@ execute on function public.get_teams_for_current_user_by_role_name (text) to aut
 create
 or replace function supajump.create_team_and_add_current_user_as_owner (team_name text) returns text language plpgsql security definer
 set
-  search_path = public as $$
+    search_path = public as $$
   declare
     new_team_id text;
     owner_role_id uuid;
@@ -344,126 +344,3 @@ $$;
 
 grant
 execute on function supajump.create_team_and_add_current_user_as_owner (text) to authenticated;
-
--- -- rls policies: teams
--- /**
---  * select: teams need to be readable by primary_owner_user_id so that the select
---  * after initial create is readable
---  */
--- create policy "teams are viewable by primary owner" on teams for
--- select
---     to authenticated using (primary_owner_user_id = auth.uid ());
--- /**
---  * select: teams are viewable by their members
---  */
--- create policy "teams are viewable by members" on teams for
--- select
---     to authenticated using (
---         id in (
---             select
---                 supajump.get_teams_for_current_user ()
---         )
---     );
--- /**
---  * insert: teams can be created by organization owners
---  */
--- create policy "teams can be created by organization owner" on teams for insert to authenticated
--- with
---     check (
---         org_id in (
---             select
---                 supajump.get_organizations_for_current_user ('owner') as get_organizations_for_current_user
---         )
---     );
--- /**
---  * update: teams can be edited by team owners
---  */
--- create policy "teams can be edited by team owners" on teams for
--- update to authenticated using (
---     (
---         id in (
---             select
---                 supajump.get_teams_for_current_user ('owner') as get_teams_for_current_user
---         )
---     )
--- )
--- with
---     check (
---         (
---             id in (
---                 select
---                     supajump.get_teams_for_current_user ('owner') as get_teams_for_current_user
---             )
---         )
---     );
--- /**
---  * update: teams can be updated by organization owners
---  */
--- create policy "organization owners can update teams" on teams for
--- update to authenticated using (
---     (
---         org_id in (
---             select
---                 supajump.get_organizations_for_current_user ('owner')
---         )
---     )
--- )
--- with
---     check (
---         (
---             org_id in (
---                 select
---                     supajump.get_organizations_for_current_user ('owner')
---             )
---         )
---     );
--- /**
---  * delete: teams can be deleted by organization owners
---  */
--- create policy "organization owners can delete teams" on teams for delete to authenticated using (
---     (
---         org_id in (
---             select
---                 supajump.get_organizations_for_current_user ('owner')
---         )
---     )
--- );
--- -- rls policies: team_memberships
--- /**
---  * select: users can all view their own team_memberships
---  */
--- create policy "users can view their own team_memberships" on team_memberships for
--- select
---     to authenticated using (user_id = auth.uid ());
--- /**
---  * select: team members can all view other team members and their roles
---  */
--- create policy "team members can view their teammates" on team_memberships for
--- select
---     to authenticated using (
---         (
---             team_id in (
---                 select
---                     supajump.get_teams_for_current_user () as get_teams_for_authenticated_user
---             )
---         )
---     );
--- /**
---  * delete: team members can be removed by owners. you cannot remove the primary team owner
---  */
--- create policy "team members can be deleted by the owner except for the primary team owner" on team_memberships for delete to authenticated using (
---     (
---         team_id in (
---             select
---                 supajump.get_teams_for_current_user ('owner') as get_teams_for_current_user
---         )
---     )
---     and user_id != (
---         select
---             primary_owner_user_id
---         from
---             public.teams
---         where
---             team_id = teams.id
---     )
--- );

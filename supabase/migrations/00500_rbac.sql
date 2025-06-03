@@ -2,7 +2,7 @@
 create
 or replace function has_team_permission (_team_id text, _resource text, _action text) returns boolean language sql security definer
 set
-  search_path = public as $$
+    search_path = public as $$
   select exists (
     select 1
     from   team_memberships tm
@@ -22,7 +22,7 @@ execute on function has_team_permission (text, text, text) to authenticated;
 create
 or replace function has_org_permission (_org_id text, _resource text, _action text) returns boolean language sql security definer
 set
-  search_path = public as $$
+    search_path = public as $$
   select exists (
     select 1
     from   org_memberships om
