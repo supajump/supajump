@@ -309,14 +309,30 @@ execute on function public.get_teams_for_current_user_by_role_name (text) to aut
 
 -- create a team and add the current user as the owner
 create
-or replace function supajump.create_team_and_add_current_user_as_owner (team_name text) returns text language plpgsql security definer
+or replace function supajump.create_team_and_add_current_user_as_owner (
+  team_name text,
+  org_id text
+) returns text language plpgsql security definer
 set
   search_path = public as $$
   declare
     new_team_id text;
     owner_role_id uuid;
     new_member_id uuid;
+    is_member boolean;
   begin
+    -- verify the current user is a member of the provided organization
+    select exists(
+      select 1
+      from public.org_memberships om
+      where om.user_id = auth.uid()
+        and om.org_id = create_team_and_add_current_user_as_owner.org_id
+    ) into is_member;
+
+    if is_member is not true then
+      raise exception 'you must be a member of the organization to create a team';
+    end if;
+
     -- Get the owner role ID for validation
     owner_role_id := supajump.get_role_id_by_name('owner', 'team');
 
@@ -325,8 +341,8 @@ set
     end if;
 
     -- Insert into teams
-    insert into public.teams (name, primary_owner_user_id)
-    values (team_name, auth.uid())
+    insert into public.teams (name, org_id, primary_owner_user_id)
+    values (team_name, org_id, auth.uid())
     returning id into new_team_id;
 
     -- Add current user as a member
@@ -343,7 +359,7 @@ set
 $$;
 
 grant
-execute on function supajump.create_team_and_add_current_user_as_owner (text) to authenticated;
+execute on function supajump.create_team_and_add_current_user_as_owner (text, text) to authenticated;
 
 -- -- rls policies: teams
 -- /**
