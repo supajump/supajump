@@ -615,7 +615,7 @@ execute on function public.get_teams_for_current_user_by_role_name (text) to aut
 
 -- create a team and add the current user as the owner
 create
-or replace function supajump.create_team_and_add_current_user_as_owner (team_name text, org_id text) returns text language plpgsql security definer
+or replace function public.create_team_and_add_current_user_as_owner (team_name text, org_id text) returns text language plpgsql security invoker
 set
     search_path = public as $$
   declare
@@ -623,6 +623,7 @@ set
     owner_role_id uuid;
     new_member_id uuid;
     is_member boolean;
+    is_primary_owner boolean;
   begin
     -- verify the current user is a member of the provided organization
     select exists(
@@ -632,7 +633,10 @@ set
         and om.org_id = create_team_and_add_current_user_as_owner.org_id
     ) into is_member;
 
-    if is_member is not true then
+    -- check if the current user is the primary owner of the organization
+    select primary_owner_user_id = auth.uid() into is_primary_owner from public.organizations where id = create_team_and_add_current_user_as_owner.org_id;
+
+    if is_member is not true or is_primary_owner is not true then
       raise exception 'you must be a member of the organization to create a team';
     end if;
 
@@ -662,4 +666,4 @@ set
 $$;
 
 grant
-execute on function supajump.create_team_and_add_current_user_as_owner (text, text) to authenticated;
+execute on function public.create_team_and_add_current_user_as_owner (text, text) to authenticated;

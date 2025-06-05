@@ -1,66 +1,114 @@
+-- seed initial user
+insert into
+    auth.users (id, email)
+values
+    ('00000000-0000-0000-0000-000000000000', 'test@test.com');
+
+-- seed initial organization and team
+insert into
+    organizations (
+        id,
+        name,
+        type,
+        primary_owner_user_id
+    )
+values
+    (
+        '00000000-0000-0000-0000-000000000000',
+        'My Organization',
+        'organization',
+        '00000000-0000-0000-0000-000000000000'
+    );
+
+insert into
+    teams (id, name, org_id, primary_owner_user_id)
+values
+    (
+        '00000000-0000-0000-0000-000000000000',
+        'My Team',
+        '00000000-0000-0000-0000-000000000000',
+        '00000000-0000-0000-0000-000000000000'
+    );
+
 -- Seed basic roles for organizations and teams
 -- Insert organization-scoped roles
 insert into
-    roles (scope, name, display_name, description)
+    roles (scope, name, display_name, description, org_id, team_id)
 values
     (
         'organization',
         'owner',
         'Owner',
-        'Full access to the organization including billing and member management'
+        'Full access to the organization including billing and member management',
+        '00000000-0000-0000-0000-000000000000',
+        null
     ),
     (
         'organization',
         'admin',
         'Admin',
-        'Administrative access to the organization excluding billing'
+        'Administrative access to the organization excluding billing',
+        '00000000-0000-0000-0000-000000000000',
+        null
     ),
     (
         'organization',
         'member',
         'Member',
-        'Basic member access to the organization'
-    ) on conflict (scope, name)
+        'Basic member access to the organization',
+        '00000000-0000-0000-0000-000000000000',
+        null
+    ) on conflict (org_id, scope, name)
 do nothing;
 
 -- Insert team-scoped roles
 insert into
-    roles (scope, name, display_name, description)
+    roles (scope, name, display_name, description, org_id, team_id)
 values
     (
         'team',
         'owner',
         'Team Owner',
-        'Full access to the team including member management'
+        'Full access to the team including member management',
+        '00000000-0000-0000-0000-000000000000',
+        '00000000-0000-0000-0000-000000000000'
     ),
     (
         'team',
         'admin',
         'Team Admin',
-        'Administrative access to the team'
+        'Administrative access to the team',
+        '00000000-0000-0000-0000-000000000000',
+        '00000000-0000-0000-0000-000000000000'
     ),
     (
         'team',
         'member',
         'Team Member',
-        'Basic member access to the team'
+        'Basic member access to the team',
+        '00000000-0000-0000-0000-000000000000',
+        '00000000-0000-0000-0000-000000000000'
     ),
     (
         'team',
         'post_editor',
         'Post Editor',
-        'Can create and edit posts within the team'
-    ) on conflict (scope, name)
+        'Can create and edit posts within the team',
+        '00000000-0000-0000-0000-000000000000',
+        '00000000-0000-0000-0000-000000000000'
+    ) on conflict (org_id, team_id, scope, name)
 do nothing;
 
 -- Insert basic role permissions for organization roles
 -- Organization owner permissions
 insert into
-    role_permissions (role_id, resource, action)
+    role_permissions (role_id, resource, action, org_id, team_id)
 select
     r.id,
     resource,
-    action
+    action,
+    r.org_id,
+    r.team_id
 from
     roles r,
     (
@@ -87,16 +135,18 @@ from
     ) as perms (resource, action)
 where
     r.scope = 'organization'
-    and r.name = 'owner' on conflict (role_id, resource, action)
+    and r.name = 'owner' on conflict (org_id, role_id, resource, action)
 do nothing;
 
 -- Organization admin permissions
 insert into
-    role_permissions (role_id, resource, action)
+    role_permissions (role_id, resource, action, org_id, team_id)
 select
     r.id,
     resource,
-    action
+    action,
+    r.org_id,
+    r.team_id
 from
     roles r,
     (
@@ -117,16 +167,18 @@ from
     ) as perms (resource, action)
 where
     r.scope = 'organization'
-    and r.name = 'admin' on conflict (role_id, resource, action)
+    and r.name = 'admin' on conflict (org_id, role_id, resource, action)
 do nothing;
 
 -- Organization member permissions
 insert into
-    role_permissions (role_id, resource, action)
+    role_permissions (role_id, resource, action, org_id, team_id)
 select
     r.id,
     resource,
-    action
+    action,
+    r.org_id,
+    r.team_id
 from
     roles r,
     (
@@ -137,16 +189,18 @@ from
     ) as perms (resource, action)
 where
     r.scope = 'organization'
-    and r.name = 'member' on conflict (role_id, resource, action)
+    and r.name = 'member' on conflict (org_id, role_id, resource, action)
 do nothing;
 
 -- Team owner permissions
 insert into
-    role_permissions (role_id, resource, action)
+    role_permissions (role_id, resource, action, org_id, team_id)
 select
     r.id,
     resource,
-    action
+    action,
+    r.org_id,
+    r.team_id
 from
     roles r,
     (
@@ -166,16 +220,18 @@ from
     ) as perms (resource, action)
 where
     r.scope = 'team'
-    and r.name = 'owner' on conflict (role_id, resource, action)
+    and r.name = 'owner' on conflict (org_id, role_id, resource, action)
 do nothing;
 
 -- Team admin permissions
 insert into
-    role_permissions (role_id, resource, action)
+    role_permissions (role_id, resource, action, org_id, team_id)
 select
     r.id,
     resource,
-    action
+    action,
+    r.org_id,
+    r.team_id
 from
     roles r,
     (
@@ -192,16 +248,18 @@ from
     ) as perms (resource, action)
 where
     r.scope = 'team'
-    and r.name = 'admin' on conflict (role_id, resource, action)
+    and r.name = 'admin' on conflict (org_id, role_id, resource, action)
 do nothing;
 
 -- Team member permissions
 insert into
-    role_permissions (role_id, resource, action)
+    role_permissions (role_id, resource, action, org_id, team_id)
 select
     r.id,
     resource,
-    action
+    action,
+    r.org_id,
+    r.team_id
 from
     roles r,
     (
@@ -212,16 +270,18 @@ from
     ) as perms (resource, action)
 where
     r.scope = 'team'
-    and r.name = 'member' on conflict (role_id, resource, action)
+    and r.name = 'member' on conflict (org_id, role_id, resource, action)
 do nothing;
 
 -- Team post editor permissions
 insert into
-    role_permissions (role_id, resource, action)
+    role_permissions (role_id, resource, action, org_id, team_id)
 select
     r.id,
     resource,
-    action
+    action,
+    r.org_id,
+    r.team_id
 from
     roles r,
     (
@@ -234,5 +294,5 @@ from
     ) as perms (resource, action)
 where
     r.scope = 'team'
-    and r.name = 'post_editor' on conflict (role_id, resource, action)
+    and r.name = 'post_editor' on conflict (org_id, role_id, resource, action)
 do nothing;
