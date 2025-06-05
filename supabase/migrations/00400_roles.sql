@@ -4,17 +4,17 @@
 -- name  = 'owner' | 'admin' | 'member' | 'post_editor' | …
 -- ────────────────────────
 create table
-    roles (
-        id uuid primary key default gen_random_uuid (),
-        scope text not null check (scope in ('organization', 'team')),
-        org_id text not null references organizations (id) on delete cascade,
-        team_id text references teams (id) on delete cascade,
-        name text not null,
-        display_name text,
-        description text,
-        unique (org_id, team_id, scope, name),
-        unique (org_id, scope, name)
-    );
+  roles (
+    id uuid primary key default gen_random_uuid (),
+    scope text not null check (scope in ('organization', 'team')),
+    org_id text not null references organizations (id) on delete cascade,
+    team_id text references teams (id) on delete cascade,
+    name text not null,
+    display_name text,
+    description text,
+    unique (org_id, team_id, scope, name),
+    unique (org_id, scope, name)
+  );
 
 alter table roles enable row level security;
 
@@ -24,16 +24,16 @@ alter table roles enable row level security;
 -- action    = view | edit | delete | manage …
 -- ────────────────────────
 create table
-    role_permissions (
-        id uuid primary key default gen_random_uuid (),
-        role_id uuid references roles (id) on delete cascade,
-        org_id text not null references organizations (id) on delete cascade,
-        team_id text references teams (id) on delete cascade,
-        resource text not null,
-        action text not null,
-        unique (org_id, team_id, role_id, resource, action),
-        unique (org_id, role_id, resource, action)
-    );
+  role_permissions (
+    id uuid primary key default gen_random_uuid (),
+    role_id uuid references roles (id) on delete cascade,
+    org_id text not null references organizations (id) on delete cascade,
+    team_id text references teams (id) on delete cascade,
+    resource text not null,
+    action text not null,
+    unique (org_id, team_id, role_id, resource, action),
+    unique (org_id, role_id, resource, action)
+  );
 
 alter table role_permissions enable row level security;
 
@@ -41,13 +41,13 @@ alter table role_permissions enable row level security;
 -- Organization Member Roles
 -- ────────────────────────
 create table
-    org_member_roles (
-        id uuid primary key default gen_random_uuid (),
-        role_id uuid references roles (id) on delete cascade,
-        org_member_id uuid references org_memberships (id) on delete cascade,
-        org_id text not null references organizations (id) on delete cascade,
-        unique (role_id, org_member_id)
-    );
+  org_member_roles (
+    id uuid primary key default gen_random_uuid (),
+    role_id uuid references roles (id) on delete cascade,
+    org_member_id uuid references org_memberships (id) on delete cascade,
+    org_id text not null references organizations (id) on delete cascade,
+    unique (role_id, org_member_id)
+  );
 
 alter table org_member_roles enable row level security;
 
@@ -55,13 +55,13 @@ alter table org_member_roles enable row level security;
 -- Team Member Roles
 -- ────────────────────────
 create table
-    team_member_roles (
-        id uuid primary key default gen_random_uuid (),
-        role_id uuid references roles (id) on delete cascade,
-        team_member_id uuid references team_memberships (id) on delete cascade,
-        team_id text not null references teams (id) on delete cascade,
-        unique (role_id, team_member_id)
-    );
+  team_member_roles (
+    id uuid primary key default gen_random_uuid (),
+    role_id uuid references roles (id) on delete cascade,
+    team_member_id uuid references team_memberships (id) on delete cascade,
+    team_id text not null references teams (id) on delete cascade,
+    unique (role_id, team_member_id)
+  );
 
 alter table team_member_roles enable row level security;
 
@@ -70,8 +70,8 @@ alter table team_member_roles enable row level security;
 -- ────────────────────────
 create
 or replace function public.create_organization (
-    name text,
-    type text default 'organization'
+  name text,
+  type text default 'organization'
 ) returns text language plpgsql security definer as $$
 declare
   new_org_id text;
@@ -140,13 +140,13 @@ $$;
 
 create
 or replace function public.update_org_memberships_role (
-    org_id text,
-    user_id uuid,
-    new_org_member_role_ids uuid[],
-    make_primary_owner boolean
+  org_id text,
+  user_id uuid,
+  new_org_member_role_ids uuid[],
+  make_primary_owner boolean
 ) returns void language plpgsql security definer
 set
-    search_path to 'public' as $$
+  search_path to 'public' as $$
     declare
       is_organization_owner boolean;
       is_organization_primary_owner boolean;
@@ -222,7 +222,7 @@ $$;
 create
 or replace function supajump.get_organizations_for_current_user (passed_in_role_id uuid default null) returns setof text language sql security definer
 set
-    search_path to 'public' as $$
+  search_path to 'public' as $$
   select distinct om.org_id
   from public.org_memberships om
   join public.org_member_roles omr on omr.org_member_id = om.id
@@ -236,14 +236,14 @@ $$;
 
 revoke all on function supajump.get_organizations_for_current_user (passed_in_role_id uuid)
 from
-    public;
+  public;
 
 grant all on function supajump.get_organizations_for_current_user (passed_in_role_id uuid) to authenticated;
 
 create
 or replace function supajump.get_organizations_for_current_user_matching_roles (passed_in_role_ids uuid[] default null) returns setof text language sql security definer
 set
-    search_path to 'public' as $$
+  search_path to 'public' as $$
     select distinct om.org_id
     from public.org_memberships om
     join public.org_member_roles omr on omr.org_member_id = om.id
@@ -257,7 +257,7 @@ $$;
 
 revoke all on function supajump.get_organizations_for_current_user_matching_roles (passed_in_role_ids uuid[])
 from
-    public;
+  public;
 
 grant all on function supajump.get_organizations_for_current_user_matching_roles (passed_in_role_ids uuid[]) to authenticated;
 
@@ -274,7 +274,7 @@ $$;
 create
 or replace function supajump.add_current_user_to_new_organization () returns trigger language plpgsql security definer
 set
-    search_path to 'public' as $$
+  search_path to 'public' as $$
   declare
     owner_role_id uuid;
     new_member_id uuid;
@@ -308,7 +308,7 @@ execute function supajump.add_current_user_to_new_organization ();
 create
 or replace function supajump.get_role_id_by_name (role_name text, role_scope text default 'organization') returns uuid language sql security definer
 set
-    search_path to 'public' as $$
+  search_path to 'public' as $$
   select id
   from roles
   where name = role_name and scope = role_scope
@@ -317,14 +317,14 @@ $$;
 
 revoke all on function supajump.get_role_id_by_name (role_name text, role_scope text)
 from
-    public;
+  public;
 
 grant all on function supajump.get_role_id_by_name (role_name text, role_scope text) to authenticated;
 
 create
 or replace function supajump.get_role_name_by_id (role_id uuid) returns text language sql security definer
 set
-    search_path to 'public' as $$
+  search_path to 'public' as $$
   select name
   from roles
   where id = role_id
@@ -333,7 +333,7 @@ $$;
 
 revoke all on function supajump.get_role_name_by_id (role_id uuid)
 from
-    public;
+  public;
 
 grant all on function supajump.get_role_name_by_id (role_id uuid) to authenticated;
 
@@ -341,7 +341,7 @@ grant all on function supajump.get_role_name_by_id (role_id uuid) to authenticat
 create
 or replace function public.get_org_role_id (role_name text) returns uuid language sql security definer
 set
-    search_path to 'public' as $$
+  search_path to 'public' as $$
   select id
   from roles
   where name = role_name and scope = 'organization'
@@ -354,7 +354,7 @@ execute on function public.get_org_role_id (text) to authenticated;
 create
 or replace function public.get_team_role_id (role_name text) returns uuid language sql security definer
 set
-    search_path to 'public' as $$
+  search_path to 'public' as $$
   select id
   from roles
   where name = role_name and scope = 'team'
@@ -368,7 +368,7 @@ execute on function public.get_team_role_id (text) to authenticated;
 create
 or replace function public.get_organizations_for_current_user_by_role_name (role_name text) returns setof text language sql security definer
 set
-    search_path to 'public' as $$
+  search_path to 'public' as $$
   select distinct om.org_id
   from public.org_memberships om
   join public.org_member_roles omr on omr.org_member_id = om.id
@@ -390,7 +390,7 @@ execute on function public.get_organizations_for_current_user_by_role_name (text
  */
 create function supajump.add_current_user_to_new_team () returns trigger language plpgsql security definer
 set
-    search_path = public as $$
+  search_path = public as $$
   declare
     owner_role_id uuid;
     new_member_id uuid;
@@ -476,13 +476,13 @@ execute on function public.current_user_teams_member_role (text) to authenticate
  */
 create
 or replace function public.update_team_memberships_role (
-    team_id text,
-    user_id uuid,
-    new_teams_member_role_ids uuid[],
-    make_primary_owner boolean
+  team_id text,
+  user_id uuid,
+  new_teams_member_role_ids uuid[],
+  make_primary_owner boolean
 ) returns void security definer
 set
-    search_path = public language plpgsql as $$
+  search_path = public language plpgsql as $$
   declare
     is_team_owner boolean;
     is_team_primary_owner boolean;
@@ -565,7 +565,7 @@ execute on function public.update_team_memberships_role (text, uuid, uuid[], boo
 create
 or replace function supajump.get_teams_for_current_user (passed_in_role_id uuid default null) returns setof text language sql security definer
 set
-    search_path = public as $$
+  search_path = public as $$
   select distinct tm.team_id
   from public.team_memberships tm
   join public.team_member_roles tmr on tmr.team_member_id = tm.id
@@ -582,7 +582,7 @@ execute on function supajump.get_teams_for_current_user (uuid) to authenticated;
 create
 or replace function supajump.get_teams_for_current_user_matching_roles (passed_in_role_ids uuid[] default null) returns setof text language sql security definer
 set
-    search_path = public as $$
+  search_path = public as $$
   select distinct tm.team_id
   from public.team_memberships tm
   join public.team_member_roles tmr on tmr.team_member_id = tm.id
@@ -600,7 +600,7 @@ execute on function supajump.get_teams_for_current_user_matching_roles (uuid[]) 
 create
 or replace function public.get_teams_for_current_user_by_role_name (role_name text) returns setof text language sql security definer
 set
-    search_path = public as $$
+  search_path = public as $$
   select distinct tm.team_id
   from public.team_memberships tm
   join public.team_member_roles tmr on tmr.team_member_id = tm.id
@@ -617,7 +617,7 @@ execute on function public.get_teams_for_current_user_by_role_name (text) to aut
 create
 or replace function public.create_team_and_add_current_user_as_owner (team_name text, org_id text) returns text language plpgsql security invoker
 set
-    search_path = public as $$
+  search_path = public as $$
   declare
     new_team_id text;
     owner_role_id uuid;
