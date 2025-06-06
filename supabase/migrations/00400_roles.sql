@@ -69,20 +69,38 @@ alter table team_member_roles enable row level security;
 -- Organizations Functions
 -- ────────────────────────
 create
-or replace function public.create_organization (
+or replace function public.create_organization_and_add_current_user_as_owner (
   name text,
   type text default 'organization'
 ) returns text language plpgsql security definer as $$
 declare
   new_org_id text;
+  owner_role_id uuid;
+  new_member_id uuid;
 begin
   insert into public.organizations (name, type, primary_owner_user_id)
-  values (create_organization.name, create_organization.type, auth.uid())
+  values (create_organization_and_add_current_user_as_owner.name, create_organization_and_add_current_user_as_owner.type, auth.uid())
   returning id into new_org_id;
 
   if not exists (select 1 from organizations where id = new_org_id) then
     raise exception 'failed to create organization.';
   end if;
+
+  -- Get the owner role ID using helper function (internal use only)
+  owner_role_id := supajump.get_role_id_by_name('owner', 'organization');
+
+  if owner_role_id is null then
+    raise exception 'Owner role not found in roles table';
+  end if;
+
+  -- Insert the membership first
+  insert into public.org_memberships (org_id, user_id)
+  values (new_org_id, auth.uid())
+  returning id into new_member_id;
+
+  -- Then assign the owner role
+  insert into public.org_member_roles (role_id, org_member_id, org_id)
+  values (owner_role_id, new_member_id, new_org_id);
 
   return new_org_id;
 exception
@@ -90,6 +108,9 @@ exception
     raise exception 'an organization with that unique id already exists';
 end;
 $$;
+
+grant
+execute on function public.create_organization_and_add_current_user_as_owner (text, text) to authenticated;
 
 create
 or replace function public.current_user_org_member_role (lookup_org_id text) returns jsonb language plpgsql as $$
@@ -272,40 +293,6 @@ end;
 $$;
 
 create
-or replace function supajump.add_current_user_to_new_organization () returns trigger language plpgsql security definer
-set
-  search_path to 'public' as $$
-  declare
-    owner_role_id uuid;
-    new_member_id uuid;
-  begin
-    if new.primary_owner_user_id = auth.uid() then
-      -- Get the owner role ID using helper function (internal use only)
-      owner_role_id := supajump.get_role_id_by_name('owner', 'organization');
-
-      if owner_role_id is null then
-        raise exception 'Owner role not found in roles table';
-      end if;
-
-      -- Insert the membership first
-      insert into public.org_memberships (org_id, user_id)
-      values (NEW.id, auth.uid())
-      returning id into new_member_id;
-
-      -- Then assign the owner role
-      insert into public.org_member_roles (role_id, org_member_id, org_id)
-      values (owner_role_id, new_member_id, NEW.id);
-    end if;
-    return NEW;
-  end;
-$$;
-
-create
-or replace trigger add_current_user_to_new_organization
-after insert on public.organizations for each row
-execute function supajump.add_current_user_to_new_organization ();
-
-create
 or replace function supajump.get_role_id_by_name (role_name text, role_scope text default 'organization') returns uuid language sql security definer
 set
   search_path to 'public' as $$
@@ -384,43 +371,6 @@ execute on function public.get_organizations_for_current_user_by_role_name (text
 -- ────────────────────────
 -- Teams Functions
 -- ────────────────────────
-/**
- * when a team gets created, we want to insert the current user as the first
- * owner
- */
-create function supajump.add_current_user_to_new_team () returns trigger language plpgsql security definer
-set
-  search_path = public as $$
-  declare
-    owner_role_id uuid;
-    new_member_id uuid;
-  begin
-    if new.primary_owner_user_id = auth.uid() then
-      -- Get the owner role ID for teams
-      owner_role_id := supajump.get_role_id_by_name('owner', 'team');
-
-      if owner_role_id is null then
-        raise exception 'Team owner role not found in roles table';
-      end if;
-
-      -- Insert the membership first
-      insert into public.team_memberships (team_id, user_id)
-      values (new.id, auth.uid())
-      returning id into new_member_id;
-
-      -- Then assign the owner role
-      insert into public.team_member_roles (role_id, team_member_id, team_id)
-      values (owner_role_id, new_member_id, new.id);
-    end if;
-    return new;
-  end;
-$$;
-
--- trigger the function whenever a new team is created
-create trigger add_current_user_to_new_team
-after insert on public.teams for each row
-execute function supajump.add_current_user_to_new_team ();
-
 /**
  * auth convenience functions
  */
@@ -615,7 +565,7 @@ execute on function public.get_teams_for_current_user_by_role_name (text) to aut
 
 -- create a team and add the current user as the owner
 create
-or replace function public.create_team_and_add_current_user_as_owner (team_name text, org_id text) returns text language plpgsql security invoker
+or replace function public.create_team_and_add_current_user_as_owner (team_name text, org_id text) returns text language plpgsql security definer
 set
   search_path = public as $$
   declare

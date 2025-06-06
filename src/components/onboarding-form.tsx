@@ -29,7 +29,7 @@ export default function OnboardingForm() {
     const supabase = createClient();
 
     const { data: newOrgId, error: orgError } = await supabase.rpc(
-      'create_organization',
+      'create_organization_and_add_current_user_as_owner',
       {
         name: values.orgName,
       }
