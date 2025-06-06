@@ -296,3 +296,27 @@ where
     r.scope = 'team'
     and r.name = 'post_editor' on conflict (org_id, role_id, resource, action)
 do nothing;
+
+-- insert into posts (id, team_id, org_id, title, content, created_at)
+-- select  gen_random_uuid(),         
+--         p.id,                       
+--         p.org_id,                             
+--         format('Post %s for project %s', gs, p.id),
+--         repeat('Lorem ipsum ', 10),
+--         now() - (gs % 365) * interval '1 day'
+-- from    generate_series(1, 1000000) as gs
+-- cross   join lateral (
+--           select id, org_id
+--           from   teams
+--           order  by random()
+--           limit  1
+--         ) p;
+-- Make sure you’re the role that would run through RLSer your test role is
+-- select set_config('request.jwt.claim.sub', '62b43f81-c2c0-4efc-a689-59b925da153b', false);
+-- -- Typical “feed” query that touches many rows
+-- EXPLAIN ANALYZE
+-- select id, title, content
+-- from   posts
+-- where  has_team_permission(team_id, 'posts', 'view')
+-- order  by created_at desc
+-- limit  20000;

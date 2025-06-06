@@ -66,6 +66,41 @@ create table
 alter table team_member_roles enable row level security;
 
 -- ────────────────────────
+-- INDEXES FOR OPTIMAL RLS PERFORMANCE
+-- ────────────────────────
+-- Critical indexes for has_team_permission and has_org_permission RLS functions
+create index idx_role_permissions_role_resource_action on role_permissions (role_id, resource, action);
+
+create index idx_role_permissions_resource_action on role_permissions (resource, action);
+
+-- Indexes for org member role lookups (has_org_permission function)
+create index idx_org_member_roles_org_member_id on org_member_roles (org_member_id);
+
+create index idx_org_member_roles_role_id on org_member_roles (role_id);
+
+-- Indexes for team member role lookups (has_team_permission function)
+create index idx_team_member_roles_team_member_id on team_member_roles (team_member_id);
+
+create index idx_team_member_roles_role_id on team_member_roles (role_id);
+
+-- Indexes for role lookups by name and scope (used in get_role_id_by_name functions)
+create index idx_roles_name_scope on roles (name, scope);
+
+create index idx_roles_scope_name on roles (scope, name);
+
+-- Composite indexes for org-specific role operations
+create index idx_org_member_roles_org_id_role_id on org_member_roles (org_id, role_id);
+
+create index idx_team_member_roles_team_id_role_id on team_member_roles (team_id, role_id);
+
+-- Indexes for role permission lookups by org and team context
+create index idx_role_permissions_org_id_resource_action on role_permissions (org_id, resource, action);
+
+create index idx_role_permissions_team_id_resource_action on role_permissions (team_id, resource, action)
+where
+  team_id is not null;
+
+-- ────────────────────────
 -- Organizations Functions
 -- ────────────────────────
 create
