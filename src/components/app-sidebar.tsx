@@ -5,8 +5,7 @@ import * as React from 'react';
 import { NavMain } from '@/components/nav-main';
 import { NavTeams } from '@/components/nav-teams';
 import { NavUser } from '@/components/nav-user';
-import { TeamSwitcher } from '@/components/team-switcher';
-import { OrgSwitcher } from '@/components/org-switcher';
+import { OrgTeamSwitcher } from '@/components/org-team-switcher';
 import {
   Sidebar,
   SidebarContent,
@@ -202,8 +201,7 @@ export function AppSidebar({
   return (
     <Sidebar collapsible='icon' {...props}>
       <SidebarHeader className='flex-row gap-2'>
-        <OrgSwitcher orgs={data.organizations} />
-        <TeamSwitcher teams={data.teams} />
+        <OrgTeamSwitcher orgs={data.organizations} teams={data.teams} />
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={navMain} />
