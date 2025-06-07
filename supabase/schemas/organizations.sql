@@ -117,3 +117,12 @@ select
         primary_owner_user_id = auth.uid ()
     )
   );
+
+create policy "Users can view organizations they are members of" on public.organizations for
+select
+  to authenticated using (
+    id in (
+      select
+        supajump.get_organizations_for_current_user ()
+    )
+  );

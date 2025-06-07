@@ -1,39 +1,36 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import OnboardingForm from '@/components/onboarding-form'
-import { Card, CardHeader, CardTitle } from '@/components/ui/card'
-import Link from 'next/link'
+import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
+import OnboardingForm from '@/components/onboarding-form';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import Link from 'next/link';
 
 export default async function AppPage() {
-  const supabase = await createClient()
+  const supabase = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect('/auth/login')
+    redirect('/auth/login');
   }
 
-  const { data: orgIds } = await supabase.rpc('supajump.get_organizations_for_current_user')
+  const { data: organizations } = await supabase
+    .from('organizations')
+    .select('id, name');
 
-  if (!orgIds || orgIds.length === 0) {
+  if (!organizations || organizations.length === 0) {
     return (
       <div className='flex min-h-svh w-full items-center justify-center p-6'>
         <div className='w-full max-w-sm'>
           <OnboardingForm />
         </div>
       </div>
-    )
+    );
   }
 
-  if (orgIds.length === 1) {
-    redirect(`/app/${orgIds[0]}`)
-  }
-
-  const { data: organizations } = await supabase
-    .from('organizations')
-    .select('id, name')
-    .in('id', orgIds)
+  // if (organizations.length === 1) {
+  //   redirect(`/app/${organizations[0].id}`);
+  // }
 
   return (
     <div className='min-h-svh bg-background'>
@@ -52,5 +49,5 @@ export default async function AppPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
