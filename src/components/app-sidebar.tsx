@@ -6,6 +6,7 @@ import { NavMain } from '@/components/nav-main';
 import { NavTeams } from '@/components/nav-teams';
 import { NavUser } from '@/components/nav-user';
 import { TeamSwitcher } from '@/components/team-switcher';
+import { OrgSwitcher } from '@/components/org-switcher';
 import {
   Sidebar,
   SidebarContent,
@@ -52,6 +53,26 @@ export function AppSidebar({
       email: 'm@example.com',
       avatar: '/avatars/shadcn.jpg',
     },
+    organizations: [
+      {
+        id: 'org_1',
+        name: 'Acme Holdings',
+        logo: Frame,
+        plan: 'Enterprise',
+      },
+      {
+        id: 'org_2',
+        name: 'Globex Corp.',
+        logo: Map,
+        plan: 'Startup',
+      },
+      {
+        id: 'org_3',
+        name: 'Umbrella',
+        logo: PieChart,
+        plan: 'Free',
+      },
+    ],
     teams: [
       {
         id: 'team_1',
@@ -180,7 +201,8 @@ export function AppSidebar({
 
   return (
     <Sidebar collapsible='icon' {...props}>
-      <SidebarHeader>
+      <SidebarHeader className='flex-row gap-2'>
+        <OrgSwitcher orgs={data.organizations} />
         <TeamSwitcher teams={data.teams} />
       </SidebarHeader>
       <SidebarContent>
