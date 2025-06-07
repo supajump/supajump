@@ -15,20 +15,26 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from '@/components/ui/alert-dialog'
-import { createClient } from '@/lib/supabase/client'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { deleteOrganization } from '@/queries/organizations'
 
 export function DeleteOrganizationButton({ orgId }: { orgId: string }) {
   const [value, setValue] = useState('')
   const [step, setStep] = useState(1)
-  const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const queryClient = useQueryClient()
 
-  const handleDelete = async () => {
-    setIsLoading(true)
-    const supabase = createClient()
-    await supabase.from('organizations').delete().eq('id', orgId)
-    router.push('/app')
-  }
+  const mutation = useMutation({
+    mutationFn: () => deleteOrganization(orgId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['organizations'] })
+      await fetch('/api/revalidate-tag', {
+        method: 'POST',
+        body: JSON.stringify({ tag: 'organizations' }),
+      })
+      router.push('/app')
+    },
+  })
 
   return (
     <AlertDialog
@@ -40,7 +46,7 @@ export function DeleteOrganizationButton({ orgId }: { orgId: string }) {
       }}
     >
       <AlertDialogTrigger asChild>
-        <Button variant="destructive">Delete Organization</Button>
+        <Button variant='destructive'>Delete Organization</Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         {step === 1 ? (
@@ -56,7 +62,7 @@ export function DeleteOrganizationButton({ orgId }: { orgId: string }) {
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction asChild>
                 <Button
-                  variant="destructive"
+                  variant='destructive'
                   disabled={value !== 'DELETE'}
                   onClick={() => setStep(2)}
                 >
@@ -77,11 +83,11 @@ export function DeleteOrganizationButton({ orgId }: { orgId: string }) {
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction asChild>
                 <Button
-                  variant="destructive"
-                  disabled={isLoading}
-                  onClick={handleDelete}
+                  variant='destructive'
+                  disabled={mutation.isPending}
+                  onClick={() => mutation.mutate()}
                 >
-                  {isLoading ? 'Deleting...' : 'Delete'}
+                  {mutation.isPending ? 'Deleting...' : 'Delete'}
                 </Button>
               </AlertDialogAction>
             </AlertDialogFooter>
