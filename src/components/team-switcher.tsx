@@ -18,18 +18,45 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { useParams, usePathname, useRouter } from "next/navigation"
 
 export function TeamSwitcher({
   teams,
 }: {
   teams: {
+    id: string
     name: string
     logo: React.ElementType
     plan: string
   }[]
 }) {
   const { isMobile } = useSidebar()
-  const [activeTeam, setActiveTeam] = React.useState(teams[0])
+  const { org_id, team_id } = useParams<{ org_id?: string; team_id?: string }>()
+  const pathname = usePathname()
+  const router = useRouter()
+
+  const [activeTeam, setActiveTeam] = React.useState(
+    teams.find((t) => t.id === team_id) ?? teams[0]
+  )
+
+  React.useEffect(() => {
+    const newTeam = teams.find((t) => t.id === team_id)
+    if (newTeam) {
+      setActiveTeam(newTeam)
+    }
+  }, [team_id, teams])
+
+  const handleSelect = (team: (typeof teams)[number]) => {
+    setActiveTeam(team)
+    if (!org_id) return
+    if (pathname.includes(`/${team_id}/`)) {
+      router.push(pathname.replace(`/${team_id}/`, `/${team.id}/`))
+    } else if (pathname.endsWith(`/${team_id}`)) {
+      router.push(pathname.replace(`/${team_id}`, `/${team.id}`))
+    } else {
+      router.push(`/app/${org_id}/${team.id}/dashboard`)
+    }
+  }
 
   if (!activeTeam) {
     return null
@@ -65,8 +92,8 @@ export function TeamSwitcher({
             </DropdownMenuLabel>
             {teams.map((team, index) => (
               <DropdownMenuItem
-                key={team.name}
-                onClick={() => setActiveTeam(team)}
+                key={team.id}
+                onClick={() => handleSelect(team)}
                 className="gap-2 p-2"
               >
                 <div className="flex size-6 items-center justify-center rounded-md border">
