@@ -54,16 +54,19 @@ export function AppSidebar({
     },
     teams: [
       {
+        id: 'team_1',
         name: 'Acme Inc',
         logo: GalleryVerticalEnd,
         plan: 'Enterprise',
       },
       {
+        id: 'team_2',
         name: 'Acme Corp.',
         logo: AudioWaveform,
         plan: 'Startup',
       },
       {
+        id: 'team_3',
         name: 'Evil Corp.',
         logo: Command,
         plan: 'Free',
