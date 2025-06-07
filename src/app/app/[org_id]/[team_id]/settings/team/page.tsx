@@ -1,0 +1,38 @@
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import UpdateTeamForm from '@/components/update-team-form'
+import { DeleteTeamButton } from '@/components/delete-team-button'
+
+export default async function TeamSettingsPage({
+  params,
+}: {
+  params: Promise<{ org_id: string; team_id: string }>
+}) {
+  const { org_id, team_id } = await params
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect('/auth/login')
+  }
+
+  const { data: team } = await supabase
+    .from('teams')
+    .select('*')
+    .eq('id', team_id)
+    .single()
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto p-6 max-w-xl space-y-10">
+        <h1 className="text-3xl font-bold">Team Settings</h1>
+        {team && <UpdateTeamForm team={team} />}
+        <div className="pt-6 border-t">
+          <DeleteTeamButton orgId={org_id} teamId={team_id} />
+        </div>
+      </div>
+    </div>
+  )
+}
