@@ -101,3 +101,19 @@ create
 or replace trigger protect_organization_fields before
 update on public.organizations for each row
 execute function public.protect_organization_fields ();
+
+drop policy if exists "Users can view other organization members" on public.org_memberships;
+
+create policy "Users can view other organization members" on public.org_memberships for
+select
+  to authenticated using (
+    has_org_permission (org_id, 'org_memberships', 'view')
+    or id in (
+      select
+        org_id
+      from
+        public.organizations
+      where
+        primary_owner_user_id = auth.uid ()
+    )
+  );
