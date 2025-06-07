@@ -1,27 +1,39 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { EditorRoot, EditorContent, useEditor, StarterKit } from 'novel';
-import { Button } from '@/components/ui/button';
-import { createClient } from '@/lib/supabase/client';
+import { useState } from 'react'
+import { EditorRoot, EditorContent, useEditor, StarterKit } from 'novel'
+import { Button } from '@/components/ui/button'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { updatePostContent } from '@/queries/posts'
 
 interface PostEditorProps {
-  postId: string;
-  initialContent: string | null;
+  postId: string
+  initialContent: string | null
 }
 
 export default function PostEditor({ postId, initialContent }: PostEditorProps) {
-  const { editor } = useEditor();
-  const supabase = createClient();
-  const [saving, setSaving] = useState(false);
+  const { editor } = useEditor()
+  const queryClient = useQueryClient()
+  const [saving, setSaving] = useState(false)
 
-  const handleSave = async () => {
-    if (!editor) return;
-    setSaving(true);
-    const content = JSON.stringify(editor.getJSON());
-    await supabase.from('posts').update({ content }).eq('id', postId);
-    setSaving(false);
-  };
+  const mutation = useMutation({
+    mutationFn: (content: string) => updatePostContent(postId, content),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['post', postId] })
+      await fetch('/api/revalidate-tag', {
+        method: 'POST',
+        body: JSON.stringify({ tag: 'posts' }),
+      })
+    },
+    onSettled: () => setSaving(false),
+  })
+
+  const handleSave = () => {
+    if (!editor) return
+    setSaving(true)
+    const content = JSON.stringify(editor.getJSON())
+    mutation.mutate(content)
+  }
 
   return (
     <div className='space-y-4'>
@@ -36,5 +48,5 @@ export default function PostEditor({ postId, initialContent }: PostEditorProps) 
         {saving ? 'Saving...' : 'Save'}
       </Button>
     </div>
-  );
+  )
 }

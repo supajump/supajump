@@ -1,10 +1,9 @@
-'use client';
+'use client'
 
-import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { createClient } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useRouter } from 'next/navigation'
+import { useForm } from 'react-hook-form'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Form,
   FormField,
@@ -12,46 +11,37 @@ import {
   FormLabel,
   FormControl,
   FormMessage,
-} from '@/components/ui/form';
+} from '@/components/ui/form'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { createOrganizationAndTeam } from '@/queries/organizations'
 
 interface FormValues {
-  orgName: string;
-  teamName: string;
+  orgName: string
+  teamName: string
 }
 
 export default function OnboardingForm() {
-  const router = useRouter();
+  const router = useRouter()
   const form = useForm<FormValues>({
     defaultValues: { orgName: '', teamName: '' },
-  });
+  })
+  const queryClient = useQueryClient()
 
-  async function onSubmit(values: FormValues) {
-    const supabase = createClient();
+  const mutation = useMutation({
+    mutationFn: (values: FormValues) =>
+      createOrganizationAndTeam(values.orgName, values.teamName),
+    onSuccess: async (data) => {
+      await queryClient.invalidateQueries({ queryKey: ['organizations'] })
+      await fetch('/api/revalidate-tag', {
+        method: 'POST',
+        body: JSON.stringify({ tag: 'organizations' }),
+      })
+      router.push(`/app/${data.orgId}/${data.teamId}/dashboard`)
+    },
+  })
 
-    const { data: newOrgId, error: orgError } = await supabase.rpc(
-      'create_organization_and_add_current_user_as_owner',
-      {
-        name: values.orgName,
-      }
-    );
-    if (orgError || !newOrgId) {
-      console.error(orgError);
-      return;
-    }
-
-    const { data: newTeamId, error: teamError } = await supabase.rpc(
-      'create_team_and_add_current_user_as_owner',
-      {
-        team_name: values.teamName,
-        org_id: newOrgId,
-      }
-    );
-    if (teamError || !newTeamId) {
-      console.error(teamError);
-      return;
-    }
-
-    router.push(`/app/${newOrgId}/${newTeamId}/dashboard`);
+  function onSubmit(values: FormValues) {
+    mutation.mutate(values)
   }
 
   return (
@@ -85,10 +75,10 @@ export default function OnboardingForm() {
             </FormItem>
           )}
         />
-        <Button type='submit' className='w-full'>
-          Create Organization and Team
+        <Button type='submit' className='w-full' disabled={mutation.isPending}>
+          {mutation.isPending ? 'Creating...' : 'Create Organization and Team'}
         </Button>
       </form>
     </Form>
-  );
+  )
 }

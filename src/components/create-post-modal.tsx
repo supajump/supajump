@@ -1,8 +1,7 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Dialog,
   DialogContent,
@@ -11,69 +10,62 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { PlusIcon } from 'lucide-react';
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { PlusIcon } from 'lucide-react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { createPost } from '@/queries/posts'
 
 interface CreatePostModalProps {
-  orgId: string;
-  teamId: string;
+  orgId: string
+  teamId: string
 }
 
 export function CreatePostModal({ orgId, teamId }: CreatePostModalProps) {
-  const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [postType, setPostType] = useState('post');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
+  const [open, setOpen] = useState(false)
+  const [title, setTitle] = useState('')
+  const [content, setContent] = useState('')
+  const [postType, setPostType] = useState('post')
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
+  const queryClient = useQueryClient()
 
-  const generateSlug = (title: string) => {
-    return title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
-  };
+  const generateSlug = (t: string) =>
+    t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const supabase = createClient();
-      const slug = generateSlug(title);
-
-      const { error } = await supabase.from('posts').insert({
+  const mutation = useMutation({
+    mutationFn: () =>
+      createPost({
         title,
         content,
         post_type: postType,
-        slug,
+        slug: generateSlug(title),
         org_id: orgId,
         team_id: teamId,
-        post_status: 'draft',
-      });
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['posts', orgId, teamId] })
+      await fetch('/api/revalidate-tag', {
+        method: 'POST',
+        body: JSON.stringify({ tag: 'posts' }),
+      })
+      setTitle('')
+      setContent('')
+      setPostType('post')
+      setOpen(false)
+      router.refresh()
+    },
+    onError: (err: Error) => setError(err.message),
+  })
 
-      if (error) throw error;
-
-      // Reset form and close modal
-      setTitle('');
-      setContent('');
-      setPostType('post');
-      setOpen(false);
-
-      // Refresh the page to show the new post
-      router.refresh();
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : 'An error occurred');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    mutation.mutate()
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -129,19 +121,15 @@ export function CreatePostModal({ orgId, teamId }: CreatePostModalProps) {
             {error && <p className='text-sm text-red-500'>{error}</p>}
           </div>
           <DialogFooter>
-            <Button
-              type='button'
-              variant='outline'
-              onClick={() => setOpen(false)}
-            >
+            <Button type='button' variant='outline' onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type='submit' disabled={isLoading}>
-              {isLoading ? 'Creating...' : 'Create Post'}
+            <Button type='submit' disabled={mutation.isPending}>
+              {mutation.isPending ? 'Creating...' : 'Create Post'}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
-  );
+  )
 }
