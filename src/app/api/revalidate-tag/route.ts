@@ -10,6 +10,7 @@ export async function POST(request: NextRequest) {
     await revalidateTag(tag)
     return NextResponse.json({ revalidated: true })
   } catch (err) {
+    console.error(err)
     return NextResponse.json({ error: 'Failed to revalidate' }, { status: 500 })
   }
 }
