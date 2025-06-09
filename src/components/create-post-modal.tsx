@@ -18,6 +18,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { PlusIcon } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/queries';
+import { postsKeys } from '@/queries/keys';
 import { createClient as createBrowserClient } from '@/lib/supabase/client';
 
 interface CreatePostModalProps {
@@ -52,7 +53,7 @@ export function CreatePostModal({ orgId, teamId }: CreatePostModalProps) {
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: ['posts', orgId, teamId],
+        queryKey: postsKeys.list(orgId, teamId),
       });
       await fetch('/api/revalidate-tag', {
         method: 'POST',

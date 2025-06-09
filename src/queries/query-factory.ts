@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { entities } from './entities'
 import { queryOptions } from '@tanstack/react-query'
+import stringify from 'fast-json-stable-stringify'
 import { Database } from '@/lib/database.types'
 
 type EntityKey = keyof typeof entities
@@ -111,7 +112,7 @@ export function queryOptionsFactory<K extends keyof typeof entities>(
     options: QueryOpts<InferRowType<(typeof entities)[K]>> & { joins?: (keyof (typeof entities)[K]['joins'])[] }
   ) {
     return queryOptions({
-      queryKey: [table, options ],
+      queryKey: [table, stringify(options)],
       queryFn: () => supabaseEntityClient.findMany(table, options),
     })
   }
