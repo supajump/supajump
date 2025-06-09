@@ -1,20 +1,47 @@
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createBrowserClient } from '@/lib/supabase/client'
+import type { Database } from '@/lib/database.types'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { queryOptionsFactory, QueryOpts, SupabaseEntityClient } from './query-factory'
+import { useQuery } from '@tanstack/react-query'
+import { entities } from './entities'
 
-export async function fetchOrganizations() {
-  const supabase = await createServerClient()
-  const { data, error } = await supabase.from('organizations').select('id, name')
+
+export const useOrganizations = (supabaseEntityClient: SupabaseEntityClient<Database>, options: QueryOpts<typeof entities['organizations']['rowType']> & { joins?: (keyof (typeof entities['organizations']['joins'])[])[] }) => {
+  return useQuery(queryOptionsFactory(supabaseEntityClient, 'organizations', {
+    ...options,
+    joins: options.joins as (keyof (typeof entities['organizations']['joins']))[]
+  }))
+}
+
+
+export const usePosts = (supabaseEntityClient: SupabaseEntityClient<Database>, options: QueryOpts<typeof entities['posts']['rowType']> & { joins?: (keyof (typeof entities['posts']['joins'])[])[] }) => {
+  return useQuery(queryOptionsFactory(supabaseEntityClient, 'posts', {
+    ...options,
+    joins: options.joins as (keyof (typeof entities['posts']['joins']))[]
+  }))
+}
+
+export async function fetchOrganizations(supabase: SupabaseClient<Database>, filters?: Record<string, unknown>) {
+  let query = supabase.from('organizations').select('id, name')
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      query = query.eq(key, value as string)
+    })
+  }
+  const { data, error } = await query
   if (error) throw new Error(error.message)
   return data
 }
 
-export async function fetchOrganization(orgId: string) {
-  const supabase = await createServerClient()
-  const { data, error } = await supabase
-    .from('organizations')
-    .select('*')
-    .eq('id', orgId)
-    .single()
+export async function fetchOrganization(supabase: SupabaseClient<Database>, filters?: Record<string, unknown>) {
+  let query = supabase.from('organizations').select('*')
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      query = query.eq(key, value as string)
+    })
+  }
+  const { data, error } = await query
   if (error) throw new Error(error.message)
   return data
 }

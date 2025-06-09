@@ -1,9 +1,9 @@
-'use client'
+'use client';
 
-import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Form,
   FormField,
@@ -11,53 +11,60 @@ import {
   FormLabel,
   FormControl,
   FormMessage,
-} from '@/components/ui/form'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchOrganization, updateOrganization } from '@/queries/organizations'
+} from '@/components/ui/form';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { updateOrganization } from '@/queries/organizations';
+import { createClient as createBrowserClient } from '@/lib/supabase/client';
+import { fetchOrganization } from '@/queries/organizations';
 
 interface UpdateOrganizationFormProps {
-  orgId: string
+  orgId: string;
 }
 
 interface FormValues {
-  name: string
+  name: string;
 }
 
-export default function UpdateOrganizationForm({ orgId }: UpdateOrganizationFormProps) {
-  const queryClient = useQueryClient()
+export default function UpdateOrganizationForm({
+  orgId,
+}: UpdateOrganizationFormProps) {
+  const queryClient = useQueryClient();
+  const supabase = createBrowserClient();
   const { data: organization } = useQuery({
-    queryKey: ['organization', orgId],
-    queryFn: () => fetchOrganization(orgId),
-  })
+    queryKey: ['organization', orgId, supabase],
+    queryFn: () => fetchOrganization(supabase, { id: orgId }),
+  });
 
   const form = useForm<FormValues>({
     defaultValues: { name: organization?.name ?? '' },
-  })
+  });
 
   useEffect(() => {
-    form.reset({ name: organization?.name ?? '' })
-  }, [organization, form])
+    form.reset({ name: organization?.name ?? '' });
+  }, [organization, form]);
 
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) => updateOrganization(orgId, values.name),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['organization', orgId] })
+      await queryClient.invalidateQueries({
+        queryKey: ['organization', orgId],
+      });
       await fetch('/api/revalidate-tag', {
         method: 'POST',
         body: JSON.stringify({ tag: 'organizations' }),
-      })
-      setSuccess('Organization updated')
+      });
+      setSuccess('Organization updated');
     },
     onError: (err: Error) => setError(err.message),
-  })
+  });
 
   function onSubmit(values: FormValues) {
-    setError(null)
-    setSuccess(null)
-    mutation.mutate(values)
+    setError(null);
+    setSuccess(null);
+    mutation.mutate(values);
   }
 
   return (
@@ -83,5 +90,5 @@ export default function UpdateOrganizationForm({ orgId }: UpdateOrganizationForm
         </Button>
       </form>
     </Form>
-  )
+  );
 }

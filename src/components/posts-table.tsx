@@ -1,21 +1,23 @@
-'use client'
+'use client';
 
-import { useQuery } from '@tanstack/react-query'
-import { fetchPosts } from '@/queries/posts'
-import { DataTable } from '@/components/data-table/data-table'
-import { columns, type Post } from '@/app/app/[org_id]/[team_id]/posts/columns'
+import { useQuery } from '@tanstack/react-query';
+import { getPosts } from '@/queries/posts';
+import { DataTable } from '@/components/data-table/data-table';
+import { columns, type Post } from '@/app/app/[org_id]/[team_id]/posts/columns';
+import { createClient as createBrowserClient } from '@/lib/supabase/client';
 
 export default function PostsTable({
   orgId,
   teamId,
 }: {
-  orgId: string
-  teamId: string
+  orgId: string;
+  teamId: string;
 }) {
+  const supabase = createBrowserClient();
   const { data = [] } = useQuery({
-    queryKey: ['posts', orgId, teamId],
-    queryFn: () => fetchPosts(orgId, teamId),
-  })
+    queryKey: ['posts', orgId, teamId, supabase],
+    queryFn: () => getPosts(supabase, orgId, teamId),
+  });
 
-  return <DataTable columns={columns} data={data as Post[]} />
+  return <DataTable columns={columns} data={data as Post[]} />;
 }

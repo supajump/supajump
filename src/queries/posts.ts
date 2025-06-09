@@ -1,8 +1,24 @@
-import { createClient as createServerClient } from '@/lib/supabase/server'
-import { createClient as createBrowserClient } from '@/lib/supabase/client'
+import type { Database } from '@/lib/database.types'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
-export async function fetchPosts(orgId: string, teamId: string) {
-  const supabase = await createServerClient()
+export async function getOrganizations(supabase: SupabaseClient<Database>) {
+  const { data, error } = await supabase
+    .from('organizations')
+    .select('*')
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function getOrganization(supabase: SupabaseClient<Database>, orgId: string) {
+  const { data, error } = await supabase
+    .from('organizations')
+    .select('*')
+    .eq('id', orgId)
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function getPosts(supabase: SupabaseClient<Database>, orgId: string, teamId: string) {
   const { data, error } = await supabase
     .from('posts')
     .select('*')
@@ -13,8 +29,7 @@ export async function fetchPosts(orgId: string, teamId: string) {
   return data
 }
 
-export async function fetchPost(postId: string) {
-  const supabase = await createServerClient()
+export async function getPost(supabase: SupabaseClient<Database>, postId: string) {
   const { data, error } = await supabase
     .from('posts')
     .select('*')
@@ -24,7 +39,7 @@ export async function fetchPost(postId: string) {
   return data
 }
 
-export async function createPost(input: {
+export async function createPost(supabase: SupabaseClient<Database>, input: {
   title: string
   content: string
   slug: string
@@ -32,7 +47,6 @@ export async function createPost(input: {
   org_id: string
   team_id: string
 }) {
-  const supabase = createBrowserClient()
   const { error } = await supabase.from('posts').insert({
     title: input.title,
     content: input.content,
@@ -45,8 +59,7 @@ export async function createPost(input: {
   if (error) throw new Error(error.message)
 }
 
-export async function updatePostContent(postId: string, content: string) {
-  const supabase = createBrowserClient()
+export async function updatePostContent(supabase: SupabaseClient<Database>, postId: string, content: string) {
   const { error } = await supabase
     .from('posts')
     .update({ content })

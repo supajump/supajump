@@ -1,7 +1,7 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
@@ -10,35 +10,39 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { PlusIcon } from 'lucide-react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { createPost } from '@/queries/posts'
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { PlusIcon } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { createPost } from '@/queries/posts';
+import { createClient as createBrowserClient } from '@/lib/supabase/client';
 
 interface CreatePostModalProps {
-  orgId: string
-  teamId: string
+  orgId: string;
+  teamId: string;
 }
 
 export function CreatePostModal({ orgId, teamId }: CreatePostModalProps) {
-  const [open, setOpen] = useState(false)
-  const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
-  const [postType, setPostType] = useState('post')
-  const [error, setError] = useState<string | null>(null)
-  const router = useRouter()
-  const queryClient = useQueryClient()
-
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [postType, setPostType] = useState('post');
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const supabase = createBrowserClient();
   const generateSlug = (t: string) =>
-    t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+    t
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
 
   const mutation = useMutation({
     mutationFn: () =>
-      createPost({
+      createPost(supabase, {
         title,
         content,
         post_type: postType,
@@ -47,25 +51,27 @@ export function CreatePostModal({ orgId, teamId }: CreatePostModalProps) {
         team_id: teamId,
       }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['posts', orgId, teamId] })
+      await queryClient.invalidateQueries({
+        queryKey: ['posts', orgId, teamId],
+      });
       await fetch('/api/revalidate-tag', {
         method: 'POST',
         body: JSON.stringify({ tag: 'posts' }),
-      })
-      setTitle('')
-      setContent('')
-      setPostType('post')
-      setOpen(false)
-      router.refresh()
+      });
+      setTitle('');
+      setContent('');
+      setPostType('post');
+      setOpen(false);
+      router.refresh();
     },
     onError: (err: Error) => setError(err.message),
-  })
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    mutation.mutate()
-  }
+    e.preventDefault();
+    setError(null);
+    mutation.mutate();
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -121,7 +127,11 @@ export function CreatePostModal({ orgId, teamId }: CreatePostModalProps) {
             {error && <p className='text-sm text-red-500'>{error}</p>}
           </div>
           <DialogFooter>
-            <Button type='button' variant='outline' onClick={() => setOpen(false)}>
+            <Button
+              type='button'
+              variant='outline'
+              onClick={() => setOpen(false)}
+            >
               Cancel
             </Button>
             <Button type='submit' disabled={mutation.isPending}>
@@ -131,5 +141,5 @@ export function CreatePostModal({ orgId, teamId }: CreatePostModalProps) {
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
