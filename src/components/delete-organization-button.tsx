@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/queries'
+import { organizationsKeys } from '@/queries/keys'
 
 export function DeleteOrganizationButton({ orgId }: { orgId: string }) {
   const [value, setValue] = useState('')
@@ -27,7 +28,9 @@ export function DeleteOrganizationButton({ orgId }: { orgId: string }) {
   const mutation = useMutation({
     mutationFn: () => api.organizations.remove(orgId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['organizations'] })
+      await queryClient.invalidateQueries({
+        queryKey: organizationsKeys.all(),
+      })
       await fetch('/api/revalidate-tag', {
         method: 'POST',
         body: JSON.stringify({ tag: 'organizations' }),

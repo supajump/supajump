@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
 import { getQueryClient } from '@/components/providers/get-query-client'
 import { api } from '@/queries'
+import { postsKeys } from '@/queries/keys'
 import PostsTable from '@/components/posts-table'
 
 export default async function Page({
@@ -19,7 +20,8 @@ export default async function Page({
 
   const queryClient = getQueryClient()
   await queryClient.prefetchQuery({
-    queryKey: ['posts', org_id, team_id, supabase],
+    // eslint-disable-next-line @tanstack/query/exhaustive-deps
+    queryKey: [...postsKeys.list(org_id, team_id), supabase.supabaseUrl],
     queryFn: () => api.posts.getAll(supabase, org_id, team_id),
   })
 

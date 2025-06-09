@@ -5,6 +5,7 @@ import { DeleteOrganizationButton } from '@/components/delete-organization-butto
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
 import { getQueryClient } from '@/components/providers/get-query-client'
 import { api } from '@/queries'
+import { organizationsKeys } from '@/queries/keys'
 
 export default async function OrganizationSettingsPage({
   params,
@@ -23,7 +24,8 @@ export default async function OrganizationSettingsPage({
 
   const queryClient = getQueryClient()
   await queryClient.prefetchQuery({
-    queryKey: ['organization', org_id, supabase],
+    // eslint-disable-next-line @tanstack/query/exhaustive-deps
+    queryKey: [...organizationsKeys.detail(org_id), supabase.supabaseUrl],
     queryFn: () => api.organizations.getById(supabase, org_id),
   })
 

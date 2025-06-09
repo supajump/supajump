@@ -1,7 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/queries';
+import { usePosts } from '@/hooks/use-posts';
 import { Badge } from '@/components/ui/badge';
 import {
   Card,
@@ -11,7 +10,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { CalendarIcon, FileTextIcon } from 'lucide-react';
-import { createClient as createBrowserClient } from '@/lib/supabase/client';
 
 interface RecentPostsClientProps {
   orgId: string;
@@ -22,15 +20,7 @@ export default function RecentPostsClient({
   orgId,
   teamId,
 }: RecentPostsClientProps) {
-  const supabase = createBrowserClient();
-  const {
-    data: posts,
-    error,
-    isLoading,
-  } = useQuery({
-    queryKey: ['posts', orgId, teamId, supabase],
-    queryFn: () => api.posts.getAll(supabase, orgId, teamId),
-  });
+  const { data: posts, error, isLoading } = usePosts(orgId, teamId);
 
   if (isLoading) {
     return <div>Loading...</div>;
