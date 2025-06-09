@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { getPosts } from '@/queries/posts';
+import { api } from '@/queries';
 import { Badge } from '@/components/ui/badge';
 import {
   Card,
@@ -29,7 +29,7 @@ export default function RecentPostsClient({
     isLoading,
   } = useQuery({
     queryKey: ['posts', orgId, teamId, supabase],
-    queryFn: () => getPosts(supabase, orgId, teamId),
+    queryFn: () => api.posts.getAll(supabase, orgId, teamId),
   });
 
   if (isLoading) {

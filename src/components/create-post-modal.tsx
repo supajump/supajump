@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { PlusIcon } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { createPost } from '@/queries/posts';
+import { api } from '@/queries';
 import { createClient as createBrowserClient } from '@/lib/supabase/client';
 
 interface CreatePostModalProps {
@@ -42,7 +42,7 @@ export function CreatePostModal({ orgId, teamId }: CreatePostModalProps) {
 
   const mutation = useMutation({
     mutationFn: () =>
-      createPost(supabase, {
+      api.posts.create(supabase, {
         title,
         content,
         post_type: postType,

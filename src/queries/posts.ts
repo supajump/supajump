@@ -1,24 +1,11 @@
 import type { Database } from '@/lib/database.types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-export async function getOrganizations(supabase: SupabaseClient<Database>) {
-  const { data, error } = await supabase
-    .from('organizations')
-    .select('*')
-  if (error) throw new Error(error.message)
-  return data
-}
-
-export async function getOrganization(supabase: SupabaseClient<Database>, orgId: string) {
-  const { data, error } = await supabase
-    .from('organizations')
-    .select('*')
-    .eq('id', orgId)
-  if (error) throw new Error(error.message)
-  return data
-}
-
-export async function getPosts(supabase: SupabaseClient<Database>, orgId: string, teamId: string) {
+async function getPosts(
+  supabase: SupabaseClient<Database>,
+  orgId: string,
+  teamId: string
+) {
   const { data, error } = await supabase
     .from('posts')
     .select('*')
@@ -29,7 +16,7 @@ export async function getPosts(supabase: SupabaseClient<Database>, orgId: string
   return data
 }
 
-export async function getPost(supabase: SupabaseClient<Database>, postId: string) {
+async function getPost(supabase: SupabaseClient<Database>, postId: string) {
   const { data, error } = await supabase
     .from('posts')
     .select('*')
@@ -39,14 +26,16 @@ export async function getPost(supabase: SupabaseClient<Database>, postId: string
   return data
 }
 
-export async function createPost(supabase: SupabaseClient<Database>, input: {
-  title: string
-  content: string
-  slug: string
-  post_type: string
-  org_id: string
-  team_id: string
-}) {
+async function createPost(
+  supabase: SupabaseClient<Database>,
+  input: {
+    title: string
+    content: string
+    slug: string
+    post_type: string
+    org_id: string
+    team_id: string
+  }) {
   const { error } = await supabase.from('posts').insert({
     title: input.title,
     content: input.content,
@@ -59,10 +48,21 @@ export async function createPost(supabase: SupabaseClient<Database>, input: {
   if (error) throw new Error(error.message)
 }
 
-export async function updatePostContent(supabase: SupabaseClient<Database>, postId: string, content: string) {
+async function updatePostContent(
+  supabase: SupabaseClient<Database>,
+  postId: string,
+  content: string
+) {
   const { error } = await supabase
     .from('posts')
     .update({ content })
     .eq('id', postId)
   if (error) throw new Error(error.message)
 }
+
+export const posts = {
+  getAll: getPosts,
+  getById: getPost,
+  create: createPost,
+  updateContent: updatePostContent,
+} as const

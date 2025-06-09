@@ -4,7 +4,7 @@ import UpdateOrganizationForm from '@/components/update-organization-form'
 import { DeleteOrganizationButton } from '@/components/delete-organization-button'
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
 import { getQueryClient } from '@/components/providers/get-query-client'
-import { fetchOrganization } from '@/queries/organizations'
+import { api } from '@/queries'
 
 export default async function OrganizationSettingsPage({
   params,
@@ -23,8 +23,8 @@ export default async function OrganizationSettingsPage({
 
   const queryClient = getQueryClient()
   await queryClient.prefetchQuery({
-    queryKey: ['organization', org_id],
-    queryFn: () => fetchOrganization(org_id),
+    queryKey: ['organization', org_id, supabase],
+    queryFn: () => api.organizations.getById(supabase, org_id),
   })
 
   return (

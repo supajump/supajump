@@ -1,7 +1,7 @@
 import { getQueryClient } from '@/components/providers/get-query-client';
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query';
 import RecentPostsClient from './recent-posts-client';
-import { getPosts } from '@/queries/posts';
+import { api } from '@/queries';
 import { createClient as createBrowserClient } from '@/lib/supabase/client';
 
 interface RecentPostsProps {
@@ -14,7 +14,7 @@ export async function RecentPosts({ orgId, teamId }: RecentPostsProps) {
   const queryClient = getQueryClient();
   await queryClient.prefetchQuery({
     queryKey: ['posts', orgId, teamId, supabase],
-    queryFn: () => getPosts(supabase, orgId, teamId),
+    queryFn: () => api.posts.getAll(supabase, orgId, teamId),
   });
 
   return (

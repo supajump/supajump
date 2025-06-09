@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { EditorRoot, EditorContent, useEditor, StarterKit } from 'novel';
 import { Button } from '@/components/ui/button';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { updatePostContent } from '@/queries/posts';
+import { api } from '@/queries';
 import { createClient as createBrowserClient } from '@/lib/supabase/client';
 
 interface PostEditorProps {
@@ -23,7 +23,7 @@ export default function PostEditor({
 
   const mutation = useMutation({
     mutationFn: (content: string) =>
-      updatePostContent(supabase, postId, content),
+      api.posts.updateContent(supabase, postId, content),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['post', postId] });
       await fetch('/api/revalidate-tag', {
