@@ -1,4 +1,3 @@
-import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createBrowserClient } from '@/lib/supabase/client'
 import type { Database } from '@/lib/database.types'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -22,31 +21,23 @@ export const usePosts = (supabaseEntityClient: SupabaseEntityClient<Database>, o
   }))
 }
 
-export async function fetchOrganizations(supabase: SupabaseClient<Database>, filters?: Record<string, unknown>) {
-  let query = supabase.from('organizations').select('id, name')
-  if (filters) {
-    Object.entries(filters).forEach(([key, value]) => {
-      query = query.eq(key, value as string)
-    })
-  }
-  const { data, error } = await query
+async function getAll(supabase: SupabaseClient<Database>) {
+  const { data, error } = await supabase.from('organizations').select('*')
   if (error) throw new Error(error.message)
   return data
 }
 
-export async function fetchOrganization(supabase: SupabaseClient<Database>, filters?: Record<string, unknown>) {
-  let query = supabase.from('organizations').select('*')
-  if (filters) {
-    Object.entries(filters).forEach(([key, value]) => {
-      query = query.eq(key, value as string)
-    })
-  }
-  const { data, error } = await query
+async function getById(supabase: SupabaseClient<Database>, id: string) {
+  const { data, error } = await supabase
+    .from('organizations')
+    .select('*')
+    .eq('id', id)
+    .single()
   if (error) throw new Error(error.message)
   return data
 }
 
-export async function updateOrganization(orgId: string, name: string) {
+async function update(orgId: string, name: string) {
   const supabase = createBrowserClient()
   const { error } = await supabase
     .from('organizations')
@@ -55,13 +46,13 @@ export async function updateOrganization(orgId: string, name: string) {
   if (error) throw new Error(error.message)
 }
 
-export async function deleteOrganization(orgId: string) {
+async function remove(orgId: string) {
   const supabase = createBrowserClient()
   const { error } = await supabase.from('organizations').delete().eq('id', orgId)
   if (error) throw new Error(error.message)
 }
 
-export async function createOrganizationAndTeam(orgName: string, teamName: string) {
+async function createWithTeam(orgName: string, teamName: string) {
   const supabase = createBrowserClient()
   const { data: newOrgId, error: orgError } = await supabase.rpc(
     'create_organization_and_add_current_user_as_owner',
@@ -79,3 +70,11 @@ export async function createOrganizationAndTeam(orgName: string, teamName: strin
   }
   return { orgId: newOrgId, teamId: newTeamId }
 }
+
+export const organizations = {
+  getAll,
+  getById,
+  update,
+  remove,
+  createWithTeam,
+} as const

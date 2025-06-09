@@ -13,7 +13,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { createOrganizationAndTeam } from '@/queries/organizations'
+import { api } from '@/queries'
 
 interface FormValues {
   orgName: string
@@ -29,7 +29,7 @@ export default function OnboardingForm() {
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) =>
-      createOrganizationAndTeam(values.orgName, values.teamName),
+      api.organizations.createWithTeam(values.orgName, values.teamName),
     onSuccess: async (data) => {
       await queryClient.invalidateQueries({ queryKey: ['organizations'] })
       await fetch('/api/revalidate-tag', {

@@ -13,9 +13,8 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { updateOrganization } from '@/queries/organizations';
+import { api } from '@/queries';
 import { createClient as createBrowserClient } from '@/lib/supabase/client';
-import { fetchOrganization } from '@/queries/organizations';
 
 interface UpdateOrganizationFormProps {
   orgId: string;
@@ -32,7 +31,7 @@ export default function UpdateOrganizationForm({
   const supabase = createBrowserClient();
   const { data: organization } = useQuery({
     queryKey: ['organization', orgId, supabase],
-    queryFn: () => fetchOrganization(supabase, { id: orgId }),
+    queryFn: () => api.organizations.getById(supabase, orgId),
   });
 
   const form = useForm<FormValues>({
@@ -47,7 +46,7 @@ export default function UpdateOrganizationForm({
   const [success, setSuccess] = useState<string | null>(null);
 
   const mutation = useMutation({
-    mutationFn: (values: FormValues) => updateOrganization(orgId, values.name),
+    mutationFn: (values: FormValues) => api.organizations.update(orgId, values.name),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: ['organization', orgId],
