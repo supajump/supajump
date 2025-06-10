@@ -15,7 +15,7 @@ export async function RecentPosts({ orgId, teamId }: RecentPostsProps) {
   const queryClient = getQueryClient();
   await queryClient.prefetchQuery({
     // eslint-disable-next-line @tanstack/query/exhaustive-deps
-    queryKey: [...postsKeys.list(orgId, teamId), supabase.supabaseUrl],
+    queryKey: [...postsKeys.list(orgId, teamId)],
     queryFn: () => api.posts.getAll(supabase, orgId, teamId),
   });
 
