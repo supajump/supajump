@@ -1,5 +1,15 @@
 import type { Database } from '@/lib/database.types'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { useQuery } from '@tanstack/react-query'
+import { queryOptionsFactory, QueryOpts, SupabaseEntityClient } from './query-factory'
+import { entities } from './entities'
+
+export const useTeams = (supabaseEntityClient: SupabaseEntityClient<Database>, options: QueryOpts<typeof entities['teams']['rowType']> & { joins?: (keyof (typeof entities['teams']['joins'])[])[] }) => {
+  return useQuery(queryOptionsFactory(supabaseEntityClient, 'teams', {
+    ...options,
+    joins: options.joins as (keyof (typeof entities['teams']['joins']))[]
+  }))
+}
 
 async function getTeams(
   supabase: SupabaseClient<Database>,

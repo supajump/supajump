@@ -63,3 +63,12 @@ or replace function public.protect_team_fields () returns trigger as $$
 create trigger protect_team_fields before
 update on public.teams for each row
 execute function public.protect_team_fields ();
+
+create policy "Users can view teams they are members of" on public.teams for
+select
+  to authenticated using (
+    id in (
+      select
+        supajump.get_teams_for_current_user ()
+    )
+  );
