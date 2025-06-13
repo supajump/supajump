@@ -48,7 +48,8 @@ export function DeleteTeamButton({ orgId, teamId }: { orgId: string; teamId: str
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Team</AlertDialogTitle>
               <AlertDialogDescription>
-                This action is irreversible. Type DELETE to continue.
+                Deleting this team is permanent and will remove all of its posts
+                and data. Type DELETE to continue.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <Input value={value} onChange={(e) => setValue(e.target.value)} />

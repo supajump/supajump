@@ -29,7 +29,11 @@ export default async function TeamSettingsPage({
       <div className="container mx-auto p-6 max-w-xl space-y-10">
         <h1 className="text-3xl font-bold">Team Settings</h1>
         {team && <UpdateTeamForm team={team} />}
-        <div className="pt-6 border-t">
+        <div className="pt-6 border-t space-y-2">
+          <h2 className="text-xl font-semibold text-destructive">Danger Zone</h2>
+          <p className="text-sm text-muted-foreground">
+            Deleting this team will permanently remove its posts and data.
+          </p>
           <DeleteTeamButton orgId={org_id} teamId={team_id} />
         </div>
       </div>
