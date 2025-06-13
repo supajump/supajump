@@ -57,7 +57,9 @@ export function DeleteOrganizationButton({ orgId }: { orgId: string }) {
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Organization</AlertDialogTitle>
               <AlertDialogDescription>
-                This action is irreversible. Type DELETE to continue.
+                Deleting this organization will remove every team and all
+                associated data. This action is irreversible. Type DELETE to
+                continue.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <Input value={value} onChange={(e) => setValue(e.target.value)} />

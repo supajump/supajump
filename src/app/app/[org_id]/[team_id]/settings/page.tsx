@@ -35,7 +35,12 @@ export default async function OrganizationSettingsPage({
         <div className='container mx-auto p-6 max-w-xl space-y-10'>
           <h1 className='text-3xl font-bold'>Organization Settings</h1>
           <UpdateOrganizationForm orgId={org_id} />
-          <div className='pt-6 border-t'>
+          <div className='pt-6 border-t space-y-2'>
+            <h2 className='text-xl font-semibold text-destructive'>Danger Zone</h2>
+            <p className='text-sm text-muted-foreground'>
+              Deleting your organization removes all teams and related data
+              permanently.
+            </p>
             <DeleteOrganizationButton orgId={org_id} />
           </div>
         </div>
