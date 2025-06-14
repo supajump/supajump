@@ -20,7 +20,7 @@ export default function RecentPostsClient({
   orgId,
   teamId,
 }: RecentPostsClientProps) {
-  const { data: posts, error, isLoading } = usePosts(orgId, teamId);
+  const { data: posts, error, isLoading } = usePosts(orgId, teamId,);
 
   if (isLoading) {
     return <div>Loading...</div>;

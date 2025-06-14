@@ -1,0 +1,85 @@
+{
+    "_meta": {
+      "template_version": 0
+    },
+    "fixtures": [
+      {
+        "name": "prod_hobby",
+        "path": "/v1/products",
+        "method": "post",
+        "params": {
+          "name": "Hobby",
+          "description": "The Hobby plan includes Unlimited AI article generation"
+        }
+      },
+      {
+        "name": "price_hobby_month",
+        "path": "/v1/prices",
+        "method": "post",
+        "params": {
+          "product": "${prod_hobby:id}",
+          "currency": "usd",
+          "billing_scheme": "per_unit",
+          "unit_amount": 1900,
+          "recurring": {
+            "interval": "month",
+            "interval_count": 1
+          }
+        }
+      },
+      {
+        "name": "price_hobby_year",
+        "path": "/v1/prices",
+        "method": "post",
+        "params": {
+          "product": "${prod_hobby:id}",
+          "currency": "usd",
+          "billing_scheme": "per_unit",
+          "unit_amount": 19000,
+          "recurring": {
+            "interval": "year",
+            "interval_count": 1
+          }
+        }
+      },
+      {
+        "name": "prod_pro",
+        "path": "/v1/products",
+        "method": "post",
+        "params": {
+          "name": "Pro",
+          "description": "The Pro plan adds bulk generation"
+        }
+      },
+      {
+        "name": "price_pro_month",
+        "path": "/v1/prices",
+        "method": "post",
+        "params": {
+          "product": "${prod_pro:id}",
+          "currency": "usd",
+          "billing_scheme": "per_unit",
+          "unit_amount": 2900,
+          "recurring": {
+            "interval": "month",
+            "interval_count": 1
+          }
+        }
+      },
+      {
+        "name": "price_pro_year",
+        "path": "/v1/prices",
+        "method": "post",
+        "params": {
+          "product": "${prod_pro:id}",
+          "currency": "usd",
+          "billing_scheme": "per_unit",
+          "unit_amount": 29000,
+          "recurring": {
+            "interval": "year",
+            "interval_count": 1
+          }
+        }
+      }
+    ]
+  }
