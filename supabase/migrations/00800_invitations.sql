@@ -3,7 +3,7 @@ with
     schema extensions;
 
 create
-or replace function is_valid_project_id (input_text text) returns boolean as $$
+or replace function is_valid_team_id (input_text text) returns boolean as $$
 BEGIN
   RETURN input_text ~ '^[0-9a-z]{5,16}$';
 END;
@@ -33,8 +33,8 @@ create table
         created_at timestamp with time zone default now(),
         -- what type of invitation is this
         invitation_type text not null default 'one-time',
-        -- project memberships to create when the invitation is accepted
-        project_member_roles jsonb
+        -- team memberships to create when the invitation is accepted
+        team_member_roles jsonb
     );
 
 alter table public.invitations
@@ -43,19 +43,19 @@ add constraint check_invitation_type check (invitation_type in ('one-time', '24-
 alter table public.invitations enable row level security;
 
 -- ALTER TABLE public.invitations
--- ADD CONSTRAINT project_roles_valid CHECK (
+-- ADD CONSTRAINT team_roles_valid CHECK (
 --     extensions.jsonb_matches_schema(
 --         schema:='{
 --             "type": "array",
 --             "items": {
 --                 "type": "object",
---                 "required": ["project_id", "project_member_role", "name"],
+--                 "required": ["team_id", "team_member_role", "name"],
 --                 "properties": {
---                     "project_id": {
+--                     "team_id": {
 --                       "minLength": 5,
 --                       "maxLength": 16
 --                     },
---                     "project_member_role": {
+--                     "team_member_role": {
 --                         "type": "string",
 --                         "enum": ["member", "admin"]
 --                     }
@@ -65,7 +65,7 @@ alter table public.invitations enable row level security;
 --                 }
 --             }
 --         }',
---         instance:= project_member_roles)
+--         instance:= team_member_roles)
 -- );
 -- manage timestamps
 create trigger set_invitations_timestamp before insert
@@ -133,9 +133,9 @@ alter table public.invitations enable row level security;
 --         )
 --     )
 -- );
--- update accept_invitation to add project_memberships
+-- update accept_invitation to add team_memberships
 /**
- * Allows a user to accept an existing invitation and join an organization and projects
+ * Allows a user to accept an existing invitation and join an organization and teams
  * This one exists in the public schema because we want it to be called
  * using the supabase rpc method
  */
@@ -146,14 +146,14 @@ set
 declare
     v_lookup_org_id text;
     v_new_member_role_id uuid;
-    v_project_roles jsonb;
-    v_project jsonb;
-    v_project_id text;
-    v_project_role text;
+    v_team_roles jsonb;
+    v_team jsonb;
+    v_team_id text;
+    v_team_role text;
     new_member_id uuid;
 begin
-    select org_id, org_member_role, project_member_roles
-    into v_lookup_org_id, v_new_member_role_id, v_project_roles
+    select org_id, org_member_role, team_member_roles
+    into v_lookup_org_id, v_new_member_role_id, v_team_roles
     from invitations
     where token = lookup_invitation_token
       and created_at > now() - interval '24 hours';
@@ -173,13 +173,13 @@ begin
         insert into org_member_roles (role_id, org_member_id, org_id)
         values (v_new_member_role_id, new_member_id, v_lookup_org_id);
 
-        -- Create project memberships based on the project_roles JSONB column
-        if v_project_roles is not null then
-            for v_project in select * from jsonb_array_elements(v_project_roles) loop
-                v_project_id := (v_project ->> 'project_id');
-                v_project_role := v_project ->> 'role';
-                insert into project_memberships (project_id, user_id, role)
-                values (v_project_id, auth.uid(), v_project_role);
+        -- Create team memberships based on the team_roles JSONB column
+        if v_team_roles is not null then
+            for v_team in select * from jsonb_array_elements(v_team_roles) loop
+                v_team_id := (v_team ->> 'team_id');
+                v_team_role := v_team ->> 'role';
+                insert into team_memberships (team_id, user_id, role)
+                values (v_team_id, auth.uid(), v_team_role);
             end loop;
         end if;
 
@@ -237,14 +237,14 @@ execute on function accept_invitation (text) to authenticated;
 grant
 execute on function lookup_invitation (text) to authenticated;
 
--- update create_org_invite to add project_roles
+-- update create_org_invite to add team_roles
 create
 or replace function create_org_invite (
     input_org_id text,
     org_member_role_id uuid,
     invitee_email text,
     invitation_type text,
-    project_member_roles JSONB
+    team_member_roles JSONB
 ) returns text as $$
 DECLARE
     inviter_id UUID;
@@ -253,9 +253,9 @@ DECLARE
     invitation_exists BOOLEAN;
     invitee_already_member BOOLEAN;
     result TEXT;
-    project jsonb;
-    project_id text;
-    project_count int;
+    team jsonb;
+    team_id text;
+    team_count int;
     owner_role_id uuid;
     admin_role_id uuid;
 BEGIN
@@ -363,23 +363,23 @@ BEGIN
         hint = 'Upgrade your subscription.';
     END IF;
 
-    -- Validate project_roles JSONB
-    IF project_member_roles IS NOT NULL THEN
-        FOR project IN SELECT * FROM jsonb_array_elements(project_member_roles) LOOP
-            project_id := project ->> 'project_id';
-            -- Check if the project belongs to the organization
-            SELECT COUNT(*) INTO project_count
-            FROM projects
-            WHERE id = project_id AND org_id = input_org_id;
-            IF project_count = 0 THEN
-                RAISE EXCEPTION 'Project ID % does not belong to the organization ID %', project_id, input_org_id;
+    -- Validate team_roles JSONB
+    IF team_member_roles IS NOT NULL THEN
+        FOR team IN SELECT * FROM jsonb_array_elements(team_member_roles) LOOP
+            team_id := team ->> 'team_id';
+            -- Check if the team belongs to the organization
+            SELECT COUNT(*) INTO team_count
+            FROM teams
+            WHERE id = team_id AND org_id = input_org_id;
+            IF team_count = 0 THEN
+                RAISE EXCEPTION 'Project ID % does not belong to the organization ID %', team_id, input_org_id;
             END IF;
         END LOOP;
     END IF;
 
     -- All checks passed, create the invitation
-    INSERT INTO invitations(org_id, org_member_role, invited_by_user_id, email, invitation_type, project_member_roles)
-    VALUES (create_org_invite.input_org_id, org_member_role_id, inviter_id, create_org_invite.invitee_email, create_org_invite.invitation_type, project_member_roles)
+    INSERT INTO invitations(org_id, org_member_role, invited_by_user_id, email, invitation_type, team_member_roles)
+    VALUES (create_org_invite.input_org_id, org_member_role_id, inviter_id, create_org_invite.invitee_email, create_org_invite.invitation_type, team_member_roles)
     RETURNING token INTO result;
 
     RETURN result;

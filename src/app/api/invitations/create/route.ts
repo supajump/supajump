@@ -49,7 +49,7 @@ export async function POST(req: Request): Promise<Response> {
     sendingRate: 1,
   })
 
-  const filteredProjectRoles = team_roles.filter(
+  const filteredTeamRoles = team_roles.filter(
     (team) => team.role !== "no_access"
   )
 
@@ -58,9 +58,9 @@ export async function POST(req: Request): Promise<Response> {
     {
       input_org_id: org_id,
       invitee_email: email,
-      org_member_role: org_member_role,
+      org_member_role_id: org_member_role,
       invitation_type: invitation_type,
-      team_roles: filteredProjectRoles,
+      team_member_roles: filteredTeamRoles,
     }
   )
 

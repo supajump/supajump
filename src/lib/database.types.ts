@@ -243,7 +243,7 @@ export type Database = {
           org_id: string
           org_member_role: string
           org_name: string | null
-          project_member_roles: Json | null
+          team_member_roles: Json | null
           token: string
           updated_at: string | null
         }
@@ -256,7 +256,7 @@ export type Database = {
           org_id: string
           org_member_role: string
           org_name?: string | null
-          project_member_roles?: Json | null
+          team_member_roles?: Json | null
           token?: string
           updated_at?: string | null
         }
@@ -269,7 +269,7 @@ export type Database = {
           org_id?: string
           org_member_role?: string
           org_name?: string | null
-          project_member_roles?: Json | null
+          team_member_roles?: Json | null
           token?: string
           updated_at?: string | null
         }
@@ -702,7 +702,7 @@ export type Database = {
           org_member_role_id: string
           invitee_email: string
           invitation_type: string
-          project_member_roles: Json
+          team_member_roles: Json
         }
         Returns: string
       }
@@ -767,10 +767,6 @@ export type Database = {
         Returns: string
       }
       is_valid_org_id: {
-        Args: { input_text: string }
-        Returns: boolean
-      }
-      is_valid_project_id: {
         Args: { input_text: string }
         Returns: boolean
       }

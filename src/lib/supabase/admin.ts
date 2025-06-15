@@ -204,7 +204,7 @@ const createOrRetrieveCustomer = async ({
 //   const customer = payment_method.customer as string
 //   const { name, phone, address } = payment_method.billing_details
 //   if (!name || !phone || !address) return
-// @ts-expect-error - Stripe PaymentMethod is not typed
+
 //   await stripe.customers.update(customer, { name, phone, address })
 //   const { error: updateError } = await supabaseAdmin
 //     .from("profiles")
@@ -255,9 +255,11 @@ const manageSubscriptionStatusChange = async (
       ? toDateTime(subscription.canceled_at).toISOString()
       : null,
     current_period_start: toDateTime(
+      // @ts-expect-error - Stripe Subscription is not typed
       subscription.current_period_start
     ).toISOString(),
     current_period_end: toDateTime(
+      // @ts-expect-error - Stripe Subscription is not typed
       subscription.current_period_end
     ).toISOString(),
     created: toDateTime(subscription.created).toISOString(),
