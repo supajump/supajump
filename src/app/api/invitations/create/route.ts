@@ -4,9 +4,7 @@ import { z } from "zod"
 import { getURL } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/server"
 
-import nodemailer from "nodemailer"
-import aws from "@aws-sdk/client-ses"
-// let { defaultProvider } = require("@aws-sdk/credential-provider-node")
+import { sendEmail } from "@/lib/email/service"
 
 const inviteSchema = z.object({
   email: z.string().email(),
@@ -34,20 +32,6 @@ export async function POST(req: Request): Promise<Response> {
 
   const supabase = await createClient()
 
-  const ses = new aws.SES({
-    apiVersion: "2010-12-01",
-    region: process.env.AWS_REGION || "",
-    credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
-    },
-  })
-
-  // create Nodemailer SES transporter
-  const transporter = nodemailer.createTransport({
-    SES: { ses, aws },
-    sendingRate: 1,
-  })
 
   const filteredTeamRoles = team_roles.filter(
     (team) => team.role !== "no_access"
@@ -68,18 +52,19 @@ export async function POST(req: Request): Promise<Response> {
     return new Response(JSON.stringify(memberError), { status: 500 })
   }
 
-  try {
-    await transporter.sendMail({
-      from: "noreply@mail.alwaysauto.com",
-      to: email,
-      subject: "Always Auto Invitation",
-      html: `<a href="${url}/invitation?token=${token}">Click here to accept the invitation</a>`,
-    })
-    return NextResponse.json(
-      { message: "Invitation sent successfully." },
-      { status: 200 }
-    )
-  } catch (error) {
-    return new Response(JSON.stringify(error), { status: 500 })
+  const emailResult = await sendEmail({
+    from: "noreply@mail.alwaysauto.com",
+    to: email,
+    subject: "Always Auto Invitation",
+    html: `<a href="${url}/invitation?token=${token}">Click here to accept the invitation</a>`,
+  })
+
+  if (emailResult.error) {
+    return new Response(JSON.stringify(emailResult.error), { status: 500 })
   }
+
+  return NextResponse.json(
+    { message: "Invitation sent successfully." },
+    { status: 200 }
+  )
 }
