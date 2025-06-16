@@ -20,6 +20,7 @@ import {
 import CreateTeamDialog from './create-team-dialog';
 import { usePathname, useRouter } from 'next/navigation';
 import { useOrganizationsWithTeams } from '@/hooks/use-organization';
+import { cn } from '@/lib/utils';
 
 export function OrgTeamSwitcher({ currentOrgId, currentTeamId }: { currentOrgId: string; currentTeamId: string }) {
   const pathname = usePathname();
@@ -119,32 +120,38 @@ export function OrgTeamSwitcher({ currentOrgId, currentTeamId }: { currentOrgId:
       </SidebarMenu>
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput placeholder='Search organizations or teams...' />
-        <CommandList>
+        <CommandList className='grid grid-cols-2 divide-x'>
           <CommandEmpty>No results found.</CommandEmpty>
-          <CommandGroup heading='Organizations'>
-            {organizationsWithTeams.map((org) => (
-              <CommandItem key={org.id} onSelect={() => handleOrgSelect(org)}>
-                {/* <org.logo className='mr-2 size-4' /> */}
-                {org.name}
+          <div>
+            <CommandGroup heading='Organizations'>
+              {organizationsWithTeams.map((org) => (
+                <CommandItem
+                  key={org.id}
+                  onSelect={() => handleOrgSelect(org)}
+                  className={cn(org.id === activeOrg.id && 'bg-accent text-accent-foreground')}
+                >
+                  {org.name}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </div>
+          <div>
+            <CommandGroup heading='Teams'>
+              {activeOrg.teams.map((team) => (
+                <CommandItem
+                  key={team.id}
+                  onSelect={() => handleTeamSelect(team)}
+                  className={cn(team.id === activeTeam.id && 'bg-accent text-accent-foreground')}
+                >
+                  {team.name}
+                </CommandItem>
+              ))}
+              <CommandSeparator />
+              <CommandItem onSelect={() => { setOpen(false); setCreateOpen(true) }}>
+                <Plus className='mr-2 size-4' /> Create Team
               </CommandItem>
-            ))}
-          </CommandGroup>
-          <CommandSeparator />
-          <CommandGroup heading='Teams'>
-            {activeOrg.teams.map((team) => (
-              <CommandItem
-                key={team.id}
-                onSelect={() => handleTeamSelect(team)}
-              >
-                {/* <team.logo className='mr-2 size-4' /> */}
-                {team.name}
-              </CommandItem>
-            ))}
-            <CommandSeparator />
-            <CommandItem onSelect={() => { setOpen(false); setCreateOpen(true) }}>
-              <Plus className='mr-2 size-4' /> Create Team
-            </CommandItem>
-          </CommandGroup>
+            </CommandGroup>
+          </div>
         </CommandList>
       </CommandDialog>
       <CreateTeamDialog orgId={activeOrg.id} open={createOpen} onOpenChange={setCreateOpen} />
