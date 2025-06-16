@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ChevronsUpDown } from 'lucide-react';
+import { ChevronsUpDown, Plus } from 'lucide-react';
 
 import {
   CommandDialog,
@@ -17,6 +17,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import CreateTeamDialog from './create-team-dialog';
 import { usePathname, useRouter } from 'next/navigation';
 import { useOrganizationsWithTeams } from '@/hooks/use-organization';
 
@@ -25,6 +26,7 @@ export function OrgTeamSwitcher({ currentOrgId, currentTeamId }: { currentOrgId:
   const router = useRouter();
 
   const [open, setOpen] = React.useState(false);
+  const [createOpen, setCreateOpen] = React.useState(false);
 
   const { data: organizationsWithTeams = [] } = useOrganizationsWithTeams();
 
@@ -138,9 +140,14 @@ export function OrgTeamSwitcher({ currentOrgId, currentTeamId }: { currentOrgId:
                 {team.name}
               </CommandItem>
             ))}
+            <CommandSeparator />
+            <CommandItem onSelect={() => { setOpen(false); setCreateOpen(true) }}>
+              <Plus className='mr-2 size-4' /> Create Team
+            </CommandItem>
           </CommandGroup>
         </CommandList>
       </CommandDialog>
+      <CreateTeamDialog orgId={activeOrg.id} open={createOpen} onOpenChange={setCreateOpen} />
     </>
   );
 }
