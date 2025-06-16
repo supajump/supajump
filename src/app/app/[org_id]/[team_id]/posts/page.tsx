@@ -5,6 +5,9 @@ import { getQueryClient } from '@/components/providers/get-query-client';
 import { api } from '@/queries';
 import { postsKeys } from '@/queries/keys';
 import PostsTable from '@/components/posts-table';
+import { DashboardHeader } from '@/components/dashboard-header';
+import { CreatePostModal } from '@/components/create-post-modal';
+import { DashboardShell } from '@/components/dashboard-shell';
 
 export default async function Page({
   params,
@@ -27,10 +30,12 @@ export default async function Page({
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <div className='flex flex-col gap-4'>
-        <h1 className='text-2xl font-bold'>Posts</h1>
+      <DashboardShell>
+        <DashboardHeader heading='Posts' headingLevel={1}>
+          <CreatePostModal orgId={org_id} teamId={team_id} />
+        </DashboardHeader>
         <PostsTable orgId={org_id} teamId={team_id} />
-      </div>
+      </DashboardShell>
     </HydrationBoundary>
   );
 }

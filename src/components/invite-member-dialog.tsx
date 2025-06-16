@@ -18,7 +18,7 @@ interface InviteMemberDialogProps {
   teamRolesMap: Record<string, { id: string; name: string }[]>;
 }
 
-export default function InviteMemberDialog({
+export function InviteMemberDialog({
   orgId,
   orgRoles,
   teams,

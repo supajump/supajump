@@ -2,9 +2,11 @@ import { DataTable } from '@/components/data-table/data-table'
 import { columns, Member } from '@/app/app/[org_id]/members/columns'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import InviteMemberDialog from '@/components/invite-member-dialog'
+import { InviteMemberDialog } from '@/components/invite-member-dialog'
+import { DashboardHeader } from '@/components/dashboard-header'
+import { DashboardShell } from '@/components/dashboard-shell'
 
-export default async function Page({
+export default async function MembersPage({
   params,
 }: {
   params: Promise<{ org_id: string }>;
@@ -58,19 +60,16 @@ export default async function Page({
   }
 
   return (
-    <div className='min-h-screen bg-background'>
-      <div className='container mx-auto p-6'>
-        <div className='flex items-center justify-between mb-8'>
-          <h1 className='text-3xl font-bold'>Members</h1>
+    <DashboardShell>
+          <DashboardHeader heading='Members' >
           <InviteMemberDialog
             orgId={org_id}
             orgRoles={orgRoles ?? []}
             teams={teams ?? []}
             teamRolesMap={teamRolesMap}
           />
-        </div>
+          </DashboardHeader>
         <DataTable columns={columns} data={members} />
-      </div>
-    </div>
+    </DashboardShell>
   )
 }

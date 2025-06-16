@@ -5,6 +5,7 @@ import {
   BookOpen,
   Bot,
   Frame,
+  FileTextIcon,
   type LucideIcon,
   Map,
   PieChart,
@@ -43,27 +44,25 @@ export function useNavMain({
   return useMemo(
     () => [
       {
-        title: 'Widgets',
+        title: 'Posts',
         url: '#',
-        icon: SquareTerminal,
+        icon: FileTextIcon,
         isActive:
           pathname?.includes(
-            `/app/${org_id}${team_id ? `/${team_id}` : ''}/widgets`
-          ) || pathname?.includes(`/app/${org_id}/widgets`),
+            `/app/${org_id}${team_id ? `/${team_id}` : ''}/posts`
+          ) || pathname?.includes(`/app/${org_id}/posts`),
         items: [
           {
-            title: 'Popups',
-            url: `/app/${org_id}${team_id ? `/${team_id}` : ''}/widgets/popups`,
+            title: 'All Posts',
+            url: `/app/${org_id}${team_id ? `/${team_id}` : ''}/posts`,
           },
           {
-            title: 'Action Buttons',
-            url: `/app/${org_id}${
-              team_id ? `/${team_id}` : ''
-            }/widgets/action-buttons`,
+            title: 'New Post',
+            url: `/app/${org_id}${team_id ? `/${team_id}` : ''}/posts/new`,
           },
           {
-            title: 'Settings',
-            url: '#',
+            title: 'Post Settings',
+            url: `/app/${org_id}${team_id ? `/${team_id}` : ''}/posts/settings`,
           },
         ],
       },
@@ -175,7 +174,7 @@ export function useNavTeams({ org_id }: { org_id?: string }) {
   return useMemo(
     () => [
       {
-        name: 'teams',
+        name: 'Teams',
         url: `/app/${org_id}/teams`,
         icon: Frame,
       },
