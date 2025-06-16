@@ -120,39 +120,44 @@ export function OrgTeamSwitcher({ currentOrgId, currentTeamId }: { currentOrgId:
       </SidebarMenu>
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput placeholder='Search organizations or teams...' />
-        <CommandList className='grid grid-cols-2 divide-x'>
-          <CommandEmpty>No results found.</CommandEmpty>
-          <div>
-            <CommandGroup heading='Organizations'>
-              {organizationsWithTeams.map((org) => (
-                <CommandItem
-                  key={org.id}
-                  onSelect={() => handleOrgSelect(org)}
-                  className={cn(org.id === activeOrg.id && 'bg-accent text-accent-foreground')}
-                >
-                  {org.name}
-                </CommandItem>
-              ))}
-            </CommandGroup>
+        <div className='grid grid-cols-2 divide-x'>
+          <div className='flex flex-col'>
+            <CommandList>
+              <CommandEmpty>No organizations found.</CommandEmpty>
+              <CommandGroup heading='Organizations'>
+                {organizationsWithTeams.map((org) => (
+                  <CommandItem
+                    key={org.id}
+                    onSelect={() => handleOrgSelect(org)}
+                    className={cn(org.id === activeOrg.id && 'bg-accent text-accent-foreground')}
+                  >
+                    {org.name}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
           </div>
-          <div>
-            <CommandGroup heading='Teams'>
-              {activeOrg.teams.map((team) => (
-                <CommandItem
-                  key={team.id}
-                  onSelect={() => handleTeamSelect(team)}
-                  className={cn(team.id === activeTeam.id && 'bg-accent text-accent-foreground')}
-                >
-                  {team.name}
+          <div className='flex flex-col'>
+            <CommandList>
+              <CommandEmpty>No teams found.</CommandEmpty>
+              <CommandGroup heading='Teams'>
+                {activeOrg.teams.map((team) => (
+                  <CommandItem
+                    key={team.id}
+                    onSelect={() => handleTeamSelect(team)}
+                    className={cn(team.id === activeTeam.id && 'bg-accent text-accent-foreground')}
+                  >
+                    {team.name}
+                  </CommandItem>
+                ))}
+                <CommandSeparator />
+                <CommandItem onSelect={() => { setOpen(false); setCreateOpen(true) }}>
+                  <Plus className='mr-2 size-4' /> Create Team
                 </CommandItem>
-              ))}
-              <CommandSeparator />
-              <CommandItem onSelect={() => { setOpen(false); setCreateOpen(true) }}>
-                <Plus className='mr-2 size-4' /> Create Team
-              </CommandItem>
-            </CommandGroup>
+              </CommandGroup>
+            </CommandList>
           </div>
-        </CommandList>
+        </div>
       </CommandDialog>
       <CreateTeamDialog orgId={activeOrg.id} open={createOpen} onOpenChange={setCreateOpen} />
     </>
