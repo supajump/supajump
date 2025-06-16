@@ -8,26 +8,16 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { useTeams } from '@/queries/teams';
-import { SupabaseEntityClient } from '@/queries/query-factory';
-import { createClient as createBrowserClient } from '@/lib/supabase/client';
+import { useTeams } from '@/hooks/use-teams';
 import { entities } from '@/queries/entities';
+import { useParams } from 'next/navigation';
 
 export function TeamsList() {
-  const supabase = createBrowserClient();
-  const supabaseEntityClient = new SupabaseEntityClient(supabase);
-  const { data: teams = { data: [], count: null } } = useTeams(
-    supabaseEntityClient,
-    {
-      filters: {},
-      sort: 'name',
-      joins: ['organization'],
-    }
-  );
-
+  const { org_id } = useParams();
+  const { data: teams = [] } = useTeams(org_id as string);
   return (
     <div className='grid gap-6 sm:grid-cols-2 md:grid-cols-3'>
-      {teams.data?.map((team) => {
+      {teams?.map((team) => {
         const teamData = team as (typeof entities)['teams']['rowType'] & {
           id: string;
           organizations?: { id: string; name: string } | null;

@@ -8,25 +8,15 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { useOrganizations } from '@/queries/organizations';
-import { SupabaseEntityClient } from '@/queries/query-factory';
-import { createClient as createBrowserClient } from '@/lib/supabase/client';
+import { useOrganizations } from '@/hooks/use-organization';
 import { entities } from '@/queries/entities';
 
 export function OrganizationsList() {
-  const supabase = createBrowserClient();
-  const supabaseEntityClient = new SupabaseEntityClient(supabase);
-  const { data: organizations = { data: [], count: null } } = useOrganizations(
-    supabaseEntityClient,
-    {
-      filters: {},
-      sort: 'name',
-    }
-  );
+  const { data: organizations = [] } = useOrganizations();
 
   return (
     <div className='grid gap-6 sm:grid-cols-2 md:grid-cols-3'>
-      {organizations.data?.map((org) => {
+      {organizations?.map((org) => {
         const organization =
           org as (typeof entities)['organizations']['rowType'] & { id: string };
         const createdAt = organization.created_at

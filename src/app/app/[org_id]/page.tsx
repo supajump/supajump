@@ -31,14 +31,12 @@ export default async function OrgDashboardPage({
     );
   }
 
-  if (teams && teams.length === 1) {
-    redirect(`/app/${org_id}/${teams[0].id}/dashboard`);
-  }
+  // if (teams && teams.length === 1) {
+  //   redirect(`/app/${org_id}/${teams[0].id}/dashboard`);
+  // }
 
   const queryClient = getQueryClient();
-  await queryClient.setQueryData(teamsKeys.list(org_id), {
-    data: teams,
-  });
+  await queryClient.setQueryData(teamsKeys.list(org_id), teams);
 
   const dehydratedState = dehydrate(queryClient);
 

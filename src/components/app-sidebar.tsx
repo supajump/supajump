@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/sidebar';
 import { useNavMain, useNavTeams } from '@/lib/menu-list';
 import { useParams } from 'next/navigation';
-// import { Database } from '@/lib/database.types';
 import {
   Frame,
   Map,
@@ -31,11 +30,9 @@ import {
 
 export function AppSidebar({
   org_id,
-  // user,
   ...props
 }: {
   org_id: string;
-  // user: Database['public']['Tables']['profiles']['Row'];
   props: React.ComponentProps<typeof Sidebar>;
 }) {
   const { team_id } = useParams<{ team_id?: string }>();
@@ -201,7 +198,7 @@ export function AppSidebar({
   return (
     <Sidebar collapsible='icon' {...props}>
       <SidebarHeader className='flex-row gap-2'>
-        <OrgTeamSwitcher orgs={data.organizations} teams={data.teams} />
+          <OrgTeamSwitcher currentOrgId={org_id} currentTeamId={team_id ?? ''} />
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={navMain} />

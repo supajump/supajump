@@ -21,6 +21,12 @@ export const usePosts = (supabaseEntityClient: SupabaseEntityClient<Database>, o
   }))
 }
 
+async function getAllWithTeams(supabase: SupabaseClient<Database>) {
+  const { data, error } = await supabase.from('organizations').select('*, teams(*)')
+  if (error) throw new Error(error.message)
+  return data
+}
+
 async function getAll(supabase: SupabaseClient<Database>) {
   const { data, error } = await supabase.from('organizations').select('*')
   if (error) throw new Error(error.message)
@@ -73,6 +79,7 @@ async function createWithTeam(orgName: string, teamName: string) {
 
 export const organizations = {
   getAll,
+  getAllWithTeams,
   getById,
   update,
   remove,

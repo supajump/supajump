@@ -7,6 +7,7 @@ export const postsKeys = {
 export const organizationsKeys = {
   all: () => ['organizations'] as const,
   detail: (orgId: string) => ['organization', orgId] as const,
+  allWithTeams: () => ['organizations', 'withTeams'] as const,
 } as const;
 
 export const teamsKeys = {

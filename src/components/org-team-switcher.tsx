@@ -17,85 +17,81 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { useParams, usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useOrganizationsWithTeams } from '@/hooks/use-organization';
 
-export function OrgTeamSwitcher({
-  orgs,
-  teams,
-}: {
-  orgs: {
-    id: string;
-    name: string;
-    logo: React.ElementType;
-    plan: string;
-  }[];
-  teams: {
-    id: string;
-    name: string;
-    logo: React.ElementType;
-    plan: string;
-  }[];
-}) {
-  const { org_id, team_id } = useParams<{
-    org_id?: string;
-    team_id?: string;
-  }>();
+export function OrgTeamSwitcher({ currentOrgId, currentTeamId }: { currentOrgId: string; currentTeamId: string }) {
   const pathname = usePathname();
   const router = useRouter();
 
   const [open, setOpen] = React.useState(false);
 
-  const [activeOrg, setActiveOrg] = React.useState(
-    orgs.find((o) => o.id === org_id) ?? orgs[0]
-  );
-  const [activeTeam, setActiveTeam] = React.useState(
-    teams.find((t) => t.id === team_id) ?? teams[0]
-  );
+  const { data: organizationsWithTeams = [] } = useOrganizationsWithTeams();
 
+  const [activeOrg, setActiveOrg] = React.useState<typeof organizationsWithTeams[number] | undefined>(undefined);
+  const [activeTeam, setActiveTeam] = React.useState<typeof organizationsWithTeams[number]['teams'][number] | undefined>(undefined);
+
+  // Initialize and sync activeOrg when organizationsWithTeams or currentOrgId changes
   React.useEffect(() => {
-    const newOrg = orgs.find((o) => o.id === org_id);
+    const newOrg = organizationsWithTeams.find((o) => o.id === currentOrgId);
     if (newOrg) {
       setActiveOrg(newOrg);
+    } else if (organizationsWithTeams.length > 0 && !newOrg) {
+      // Fallback to first org if current org not found
+      setActiveOrg(organizationsWithTeams[0]);
     }
-  }, [org_id, orgs]);
+  }, [currentOrgId, organizationsWithTeams]);
 
+  // Initialize and sync activeTeam when activeOrg or currentTeamId changes
   React.useEffect(() => {
-    const newTeam = teams.find((t) => t.id === team_id);
-    if (newTeam) {
-      setActiveTeam(newTeam);
+    if (activeOrg) {
+      const newTeam = activeOrg.teams.find((t) => t.id === currentTeamId);
+      if (newTeam) {
+        setActiveTeam(newTeam);
+      } else if (activeOrg.teams.length > 0) {
+        // Fallback to first team if current team not found
+        setActiveTeam(activeOrg.teams[0]);
+      }
     }
-  }, [team_id, teams]);
+  }, [currentTeamId, activeOrg]);
 
-  const handleOrgSelect = (org: (typeof orgs)[number]) => {
+  const handleOrgSelect = (org: (typeof organizationsWithTeams)[number]) => {
     setActiveOrg(org);
     setOpen(false);
-    if (!org_id) return;
-    if (pathname.includes(`/${org_id}/`)) {
-      router.push(pathname.replace(`/${org_id}/`, `/${org.id}/`));
-    } else if (pathname.endsWith(`/${org_id}`)) {
-      router.push(pathname.replace(`/${org_id}`, `/${org.id}`));
-    } else if (team_id) {
-      router.push(`/app/${org.id}/${team_id}/dashboard`);
-    } else {
-      router.push(`/app/${org.id}`);
-    }
+    if (!currentOrgId) return;
+    router.push(`/app/${org.id}`);
   };
 
-  const handleTeamSelect = (team: (typeof teams)[number]) => {
+  const handleTeamSelect = (team: NonNullable<typeof activeOrg>['teams'][number]) => {
     setActiveTeam(team);
     setOpen(false);
-    if (!org_id) return;
-    if (pathname.includes(`/${team_id}/`)) {
-      router.push(pathname.replace(`/${team_id}/`, `/${team.id}/`));
-    } else if (pathname.endsWith(`/${team_id}`)) {
-      router.push(pathname.replace(`/${team_id}`, `/${team.id}`));
+    if (!currentOrgId) return;
+    if (pathname.includes(`/${currentTeamId}/`)) {
+      router.push(pathname.replace(`/${currentTeamId}/`, `/${team.id}/`));
+    } else if (pathname.endsWith(`/${currentTeamId}`)) {
+      router.push(pathname.replace(`/${currentTeamId}`, `/${team.id}`));
     } else {
-      router.push(`/app/${org_id}/${team.id}/dashboard`);
+      router.push(`/app/${currentOrgId}/${team.id}/dashboard`);
     }
   };
 
-  if (!activeOrg || !activeTeam) {
-    return null;
+  // Show loading state while data is being fetched or states are being initialized
+  if (!activeOrg || !activeTeam || organizationsWithTeams.length === 0) {
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton size='lg' disabled>
+            <div className='bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg'>
+              {/* Loading placeholder */}
+            </div>
+            <div className='grid flex-1 text-left text-sm leading-tight'>
+              <span className='truncate font-medium'>Loading...</span>
+              <span className='truncate text-xs'>Please wait</span>
+            </div>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    );
   }
 
   return (
@@ -109,7 +105,7 @@ export function OrgTeamSwitcher({
             className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
           >
             <div className='bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg'>
-              <activeTeam.logo className='size-4' />
+              {/* <activeTeam.logo className='size-4' /> */}
             </div>
             <div className='grid flex-1 text-left text-sm leading-tight'>
               <span className='truncate font-medium'>{activeOrg.name}</span>
@@ -124,21 +120,21 @@ export function OrgTeamSwitcher({
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
           <CommandGroup heading='Organizations'>
-            {orgs.map((org) => (
+            {organizationsWithTeams.map((org) => (
               <CommandItem key={org.id} onSelect={() => handleOrgSelect(org)}>
-                <org.logo className='mr-2 size-4' />
+                {/* <org.logo className='mr-2 size-4' /> */}
                 {org.name}
               </CommandItem>
             ))}
           </CommandGroup>
           <CommandSeparator />
           <CommandGroup heading='Teams'>
-            {teams.map((team) => (
+            {activeOrg.teams.map((team) => (
               <CommandItem
                 key={team.id}
                 onSelect={() => handleTeamSelect(team)}
               >
-                <team.logo className='mr-2 size-4' />
+                {/* <team.logo className='mr-2 size-4' /> */}
                 {team.name}
               </CommandItem>
             ))}

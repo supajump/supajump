@@ -20,9 +20,7 @@ export default async function AppPage() {
   const organizations = await api.organizations.getAll(supabase);
 
   const queryClient = getQueryClient();
-  await queryClient.setQueryData(organizationsKeys.all(), {
-    data: organizations,
-  });
+  await queryClient.setQueryData(organizationsKeys.all(), organizations);
 
   const dehydratedState = dehydrate(queryClient);
 

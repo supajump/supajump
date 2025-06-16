@@ -21,7 +21,7 @@ export default async function Page({
   const queryClient = getQueryClient();
   await queryClient.prefetchQuery({
     // eslint-disable-next-line @tanstack/query/exhaustive-deps
-    queryKey: [...postsKeys.list(org_id, team_id)],
+    queryKey: postsKeys.list(org_id, team_id),
     queryFn: () => api.posts.getAll(supabase, org_id, team_id),
   });
 

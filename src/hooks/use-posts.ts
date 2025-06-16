@@ -9,7 +9,7 @@ export function usePosts(orgId: string, teamId: string) {
   const supabase = createBrowserClient();
   return useQuery({
     // eslint-disable-next-line @tanstack/query/exhaustive-deps
-    queryKey: [...postsKeys.list(orgId, teamId), supabase.supabaseUrl],
+    queryKey: postsKeys.list(orgId, teamId),
     queryFn: () => api.posts.getAll(supabase, orgId, teamId),
   });
 }

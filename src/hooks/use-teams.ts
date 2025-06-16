@@ -9,7 +9,7 @@ export function useTeams(orgId: string) {
   const supabase = createBrowserClient()
   return useQuery({
     // eslint-disable-next-line @tanstack/query/exhaustive-deps
-    queryKey: [...teamsKeys.list(orgId), supabase.supabaseUrl],
+    queryKey: teamsKeys.list(orgId),
     queryFn: () => api.teams.getAll(supabase, orgId),
   })
 }
@@ -18,7 +18,7 @@ export function useTeam(teamId: string) {
   const supabase = createBrowserClient()
   return useQuery({
     // eslint-disable-next-line @tanstack/query/exhaustive-deps
-    queryKey: [...teamsKeys.detail(teamId), supabase.supabaseUrl],
+    queryKey: teamsKeys.detail(teamId),
     queryFn: () => api.teams.getById(supabase, teamId),
   })
 }
