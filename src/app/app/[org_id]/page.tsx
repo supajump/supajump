@@ -5,6 +5,8 @@ import { teamsKeys } from '@/queries/keys';
 import { getQueryClient } from '@/components/providers/get-query-client';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { TeamsList } from '@/components/teams-list';
+import { DashboardShell } from '@/components/dashboard-shell';
+import { DashboardHeader } from '@/components/dashboard-header';
 
 export default async function OrgDashboardPage({
   params,
@@ -41,15 +43,11 @@ export default async function OrgDashboardPage({
   const dehydratedState = dehydrate(queryClient);
 
   return (
-    <div className='min-h-svh bg-background'>
-      <div className='container mx-auto p-6'>
-        <h1 className='mb-6 text-3xl font-bold'>Select Team</h1>
-        <div className='grid gap-6 sm:grid-cols-2 md:grid-cols-3'>
-          <HydrationBoundary state={dehydratedState}>
-            <TeamsList />
-          </HydrationBoundary>
-        </div>
-      </div>
-    </div>
+    <DashboardShell>
+      <DashboardHeader heading='Select Team' headingLevel={1} />
+      <HydrationBoundary state={dehydratedState}>
+        <TeamsList />
+      </HydrationBoundary>
+    </DashboardShell>
   );
 }

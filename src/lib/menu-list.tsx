@@ -175,7 +175,7 @@ export function useNavTeams({ org_id }: { org_id?: string }) {
     () => [
       {
         name: 'Teams',
-        url: `/app/${org_id}/teams`,
+        url: `/app/${org_id}`,
         icon: Frame,
       },
       {

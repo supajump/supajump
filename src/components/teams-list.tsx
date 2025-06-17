@@ -32,7 +32,7 @@ export function TeamsList() {
         return (
           <Card key={teamData.id} className='hover:bg-muted'>
             <Link
-              href={`/app/${teamData.org_id}/${teamData.id}/dashboard`}
+              href={`/app/${teamData.org_id}/${teamData.id}`}
               className='block space-y-2 p-4'
             >
               <CardHeader className='p-0'>

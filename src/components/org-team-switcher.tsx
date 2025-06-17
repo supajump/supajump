@@ -4,7 +4,7 @@ import * as React from 'react';
 import { ChevronsUpDown, Plus } from 'lucide-react';
 
 import {
-  CommandDialog,
+  Command,
   CommandInput,
   CommandList,
   CommandEmpty,
@@ -12,6 +12,11 @@ import {
   CommandItem,
   CommandSeparator,
 } from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   SidebarMenu,
   SidebarMenuButton,
@@ -74,7 +79,7 @@ export function OrgTeamSwitcher({ currentOrgId, currentTeamId }: { currentOrgId:
     } else if (pathname.endsWith(`/${currentTeamId}`)) {
       router.push(pathname.replace(`/${currentTeamId}`, `/${team.id}`));
     } else {
-      router.push(`/app/${currentOrgId}/${team.id}/dashboard`);
+      router.push(`/app/${currentOrgId}/${team.id}`);
     }
   };
 
@@ -101,64 +106,69 @@ export function OrgTeamSwitcher({ currentOrgId, currentTeamId }: { currentOrgId:
     <>
       <SidebarMenu>
         <SidebarMenuItem>
-          <SidebarMenuButton
-            size='lg'
-            onClick={() => setOpen(true)}
-            data-state={open ? 'open' : 'closed'}
-            className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
-          >
-            <div className='bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg'>
-              {/* <activeTeam.logo className='size-4' /> */}
-            </div>
-            <div className='grid flex-1 text-left text-sm leading-tight'>
-              <span className='truncate font-medium'>{activeOrg.name}</span>
-              <span className='truncate text-xs'>{activeTeam.name}</span>
-            </div>
-            <ChevronsUpDown className='ml-auto size-4' />
-          </SidebarMenuButton>
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <SidebarMenuButton
+                size='lg'
+                data-state={open ? 'open' : 'closed'}
+                className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
+              >
+                <div className='bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg'>
+                  {/* <activeTeam.logo className='size-4' /> */}
+                </div>
+                <div className='grid flex-1 text-left text-sm leading-tight'>
+                  <span className='truncate font-medium'>{activeOrg.name}</span>
+                  <span className='truncate text-xs'>{activeTeam.name}</span>
+                </div>
+                <ChevronsUpDown className='ml-auto size-4' />
+              </SidebarMenuButton>
+            </PopoverTrigger>
+            <PopoverContent className="w-120 p-0" align="start">
+              <Command>
+                <CommandInput placeholder='Search organizations or teams...' />
+                <div className='grid grid-cols-2 divide-x'>
+                  <div className='flex flex-col'>
+                    <CommandList>
+                      <CommandEmpty>No organizations found.</CommandEmpty>
+                      <CommandGroup heading='Organizations' className='px-0'>
+                        {organizationsWithTeams.map((org) => (
+                          <CommandItem
+                            key={org.id}
+                            onSelect={() => handleOrgSelect(org)}
+                            className={cn('py-4 rounded-none', org.id === activeOrg.id && 'bg-accent text-accent-foreground')}
+                          >
+                            {org.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </div>
+                  <div className='flex flex-col'>
+                    <CommandList>
+                      <CommandEmpty>No teams found.</CommandEmpty>
+                      <CommandGroup heading='Teams' className='px-0'>
+                        {activeOrg.teams.map((team) => (
+                          <CommandItem
+                            key={team.id}
+                            onSelect={() => handleTeamSelect(team)}
+                            className={cn('py-4 rounded-none', team.id === activeTeam.id && 'bg-accent text-accent-foreground')}
+                          >
+                            {team.name}
+                          </CommandItem>
+                        ))}
+                        <CommandSeparator />
+                        <CommandItem onSelect={() => { setOpen(false); setCreateOpen(true) }} className="py-1 my-1">
+                          <Plus className='mr-2 size-4' /> Create Team
+                        </CommandItem>
+                      </CommandGroup>
+                    </CommandList>
+                  </div>
+                </div>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </SidebarMenuItem>
       </SidebarMenu>
-      <CommandDialog open={open} onOpenChange={setOpen}>
-        <CommandInput placeholder='Search organizations or teams...' />
-        <div className='grid grid-cols-2 divide-x'>
-          <div className='flex flex-col'>
-            <CommandList>
-              <CommandEmpty>No organizations found.</CommandEmpty>
-              <CommandGroup heading='Organizations'>
-                {organizationsWithTeams.map((org) => (
-                  <CommandItem
-                    key={org.id}
-                    onSelect={() => handleOrgSelect(org)}
-                    className={cn(org.id === activeOrg.id && 'bg-accent text-accent-foreground')}
-                  >
-                    {org.name}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </div>
-          <div className='flex flex-col'>
-            <CommandList>
-              <CommandEmpty>No teams found.</CommandEmpty>
-              <CommandGroup heading='Teams'>
-                {activeOrg.teams.map((team) => (
-                  <CommandItem
-                    key={team.id}
-                    onSelect={() => handleTeamSelect(team)}
-                    className={cn(team.id === activeTeam.id && 'bg-accent text-accent-foreground')}
-                  >
-                    {team.name}
-                  </CommandItem>
-                ))}
-                <CommandSeparator />
-                <CommandItem onSelect={() => { setOpen(false); setCreateOpen(true) }}>
-                  <Plus className='mr-2 size-4' /> Create Team
-                </CommandItem>
-              </CommandGroup>
-            </CommandList>
-          </div>
-        </div>
-      </CommandDialog>
       <CreateTeamDialog orgId={activeOrg.id} open={createOpen} onOpenChange={setCreateOpen} />
     </>
   );

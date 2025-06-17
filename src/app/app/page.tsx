@@ -6,6 +6,8 @@ import { organizationsKeys } from '@/queries/keys';
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query';
 import { getQueryClient } from '@/components/providers/get-query-client';
 import { OrganizationsList } from '@/components/organizations-list';
+import { DashboardShell } from '@/components/dashboard-shell';
+import { DashboardHeader } from '@/components/dashboard-header';
 
 export default async function AppPage() {
   const supabase = await createClient();
@@ -39,15 +41,13 @@ export default async function AppPage() {
   // }
 
   return (
-    <HydrationBoundary state={dehydratedState}>
-      <div className='min-h-svh bg-background'>
-        <div className='container mx-auto p-6'>
-          <h1 className='mb-6 text-3xl font-bold'>Select Organization</h1>
-          <div className='grid gap-6 sm:grid-cols-2 md:grid-cols-3'>
-            <OrganizationsList />
-          </div>
-        </div>
+    <DashboardShell>
+      <div className='container mx-auto p-6'>
+        <DashboardHeader heading='Select Organization' headingLevel={1} />
+        <HydrationBoundary state={dehydratedState}>
+          <OrganizationsList />
+        </HydrationBoundary>
       </div>
-    </HydrationBoundary>
+    </DashboardShell>
   );
 }
