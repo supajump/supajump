@@ -1,8 +1,11 @@
-import { DataTable } from '@/components/data-table/data-table'
+import RolesTable from '@/components/roles-table'
 import CreateRoleForm from '@/components/create-role-form'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { columns, type Role } from './columns'
+import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
+import { getQueryClient } from '@/components/providers/get-query-client'
+import { api } from '@/queries'
+import { rolesKeys } from '@/queries/keys'
 
 export default async function RolesPage({
   params,
@@ -23,22 +26,25 @@ export default async function RolesPage({
     .from('teams')
     .select('id, name')
     .eq('org_id', org_id)
-
-  const { data: roles } = await supabase
-    .from('roles')
-    .select('*')
-    .eq('org_id', org_id)
+  const queryClient = getQueryClient()
+  await queryClient.prefetchQuery({
+    // eslint-disable-next-line @tanstack/query/exhaustive-deps
+    queryKey: rolesKeys.list(org_id),
+    queryFn: () => api.roles.getAll(supabase, org_id),
+  })
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-6 max-w-xl">
-        <h1 className="mb-6 text-3xl font-bold">Create Role</h1>
-        <CreateRoleForm orgId={org_id} teams={teams ?? []} />
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto p-6 max-w-xl">
+          <h1 className="mb-6 text-3xl font-bold">Create Role</h1>
+          <CreateRoleForm orgId={org_id} teams={teams ?? []} />
+        </div>
+        <div className="container mx-auto p-6">
+          <h2 className="mb-4 text-2xl font-bold">Roles</h2>
+          <RolesTable orgId={org_id} />
+        </div>
       </div>
-      <div className="container mx-auto p-6">
-        <h2 className="mb-4 text-2xl font-bold">Roles</h2>
-        <DataTable columns={columns} data={(roles ?? []) as Role[]} />
-      </div>
-    </div>
+    </HydrationBoundary>
   )
 }

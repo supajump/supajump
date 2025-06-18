@@ -1,10 +1,13 @@
-import { DataTable } from '@/components/data-table/data-table'
-import { columns, Member } from '@/app/app/[org_id]/members/columns'
+import MembersTable from '@/components/members-table'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { InviteMemberDialog } from '@/components/invite-member-dialog'
 import { DashboardHeader } from '@/components/dashboard-header'
 import { DashboardShell } from '@/components/dashboard-shell'
+import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
+import { getQueryClient } from '@/components/providers/get-query-client'
+import { api } from '@/queries'
+import { membersKeys } from '@/queries/keys'
 
 export default async function MembersPage({
   params,
@@ -20,15 +23,12 @@ export default async function MembersPage({
   if (userError) {
     console.error(userError);
   }
-  const { data: org_memberships, error } = await supabase
-    .from('org_memberships')
-    .select('*, profiles!org_memberships_profiles_fkey(*)')
-    .eq('org_id', org_id);
-
-  if (error) {
-    console.error(error);
-  }
-  const members = org_memberships?.map((org) => org?.profiles) as Member[];
+  const queryClient = getQueryClient();
+  await queryClient.prefetchQuery({
+    // eslint-disable-next-line @tanstack/query/exhaustive-deps
+    queryKey: membersKeys.list(org_id),
+    queryFn: () => api.members.getAll(supabase, org_id),
+  });
 
   const { data: orgRoles } = await supabase
     .from('roles')
@@ -60,16 +60,18 @@ export default async function MembersPage({
   }
 
   return (
-    <DashboardShell>
-          <DashboardHeader heading='Members' >
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <DashboardShell>
+        <DashboardHeader heading='Members'>
           <InviteMemberDialog
             orgId={org_id}
             orgRoles={orgRoles ?? []}
             teams={teams ?? []}
             teamRolesMap={teamRolesMap}
           />
-          </DashboardHeader>
-        <DataTable columns={columns} data={members} />
-    </DashboardShell>
-  )
+        </DashboardHeader>
+        <MembersTable orgId={org_id} />
+      </DashboardShell>
+    </HydrationBoundary>
+  );
 }
