@@ -15,3 +15,13 @@ export const teamsKeys = {
   list: (orgId: string) => ['teams', orgId] as const,
   detail: (teamId: string) => ['team', teamId] as const,
 } as const;
+
+export const membersKeys = {
+  all: () => ['members'] as const,
+  list: (orgId: string) => ['members', orgId] as const,
+} as const;
+
+export const rolesKeys = {
+  all: () => ['roles'] as const,
+  list: (orgId: string) => ['roles', orgId] as const,
+} as const;
