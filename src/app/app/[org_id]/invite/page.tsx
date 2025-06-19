@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import InviteMemberForm from '@/components/invite-member-form'
+import { api } from '@/queries'
 
 export default async function InvitePage({
   params,
@@ -17,25 +18,18 @@ export default async function InvitePage({
     redirect('/auth/login')
   }
 
-  const { data: orgRoles } = await supabase
-    .from('roles')
-    .select('id, name, scope')
-    .eq('org_id', org_id)
-    .eq('scope', 'organization')
+  const orgRoles = await api.roles.getByScope(
+    supabase,
+    org_id,
+    'organization',
+  )
 
-  const { data: teams } = await supabase
-    .from('teams')
-    .select('id, name')
-    .eq('org_id', org_id)
+  const teams = await api.teams.getAll(supabase, org_id)
 
   const teamRolesMap: Record<string, { id: string; name: string }[]> = {}
   if (teams && teams.length > 0) {
     const teamIds = teams.map((t) => t.id)
-    const { data: teamRoles } = await supabase
-      .from('roles')
-      .select('id, name, team_id')
-      .eq('scope', 'team')
-      .in('team_id', teamIds)
+    const teamRoles = await api.roles.getForTeams(supabase, teamIds)
 
     if (teamRoles) {
       for (const role of teamRoles) {

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import PostEditor from '@/components/post-editor';
+import { api } from '@/queries';
 
 export default async function Page({
   params,
@@ -14,13 +15,9 @@ export default async function Page({
     redirect('/auth/login');
   }
 
-  const { data: post, error } = await supabase
-    .from('posts')
-    .select('*')
-    .eq('id', postId)
-    .single();
+  const post = await api.posts.getById(supabase, postId);
 
-  if (error || !post) {
+  if (!post) {
     return <div className='p-6'>Post not found</div>;
   }
 

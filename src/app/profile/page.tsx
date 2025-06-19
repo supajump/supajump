@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { UpdateProfileForm } from '@/components/update-profile-form'
 import { ChangePasswordForm } from '@/components/change-password-form'
 import { DeleteAccountButton } from '@/components/delete-account-button'
+import { api } from '@/queries'
 
 export default async function ProfilePage() {
   const supabase = await createClient()
@@ -14,11 +15,7 @@ export default async function ProfilePage() {
     redirect('/auth/login')
   }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+  const profile = await api.profiles.getById(supabase, user.id)
 
   return (
     <div className="min-h-screen bg-background">
