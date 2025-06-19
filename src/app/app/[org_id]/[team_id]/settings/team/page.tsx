@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import UpdateTeamForm from '@/components/update-team-form'
 import { DeleteTeamButton } from '@/components/delete-team-button'
+import { api } from '@/queries'
 
 export default async function TeamSettingsPage({
   params,
@@ -18,11 +19,7 @@ export default async function TeamSettingsPage({
     redirect('/auth/login')
   }
 
-  const { data: team } = await supabase
-    .from('teams')
-    .select('*')
-    .eq('id', team_id)
-    .single()
+  const team = await api.teams.getById(supabase, team_id)
 
   return (
     <div className="min-h-screen bg-background">

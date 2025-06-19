@@ -22,10 +22,7 @@ export default async function RolesPage({
     redirect('/auth/login')
   }
 
-  const { data: teams } = await supabase
-    .from('teams')
-    .select('id, name')
-    .eq('org_id', org_id)
+  const teams = await api.teams.getAll(supabase, org_id)
   const queryClient = getQueryClient()
   await queryClient.prefetchQuery({
     // eslint-disable-next-line @tanstack/query/exhaustive-deps
