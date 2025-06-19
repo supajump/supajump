@@ -184,6 +184,16 @@ export function useNavTeams({ org_id }: { org_id?: string }) {
         icon: PieChart,
       },
       {
+        name: 'Invitations',
+        url: `/app/${org_id}/invitations`,
+        icon: PieChart,
+      },
+      {
+        name: 'Roles',
+        url: `/app/${org_id}/roles`,
+        icon: PieChart,
+      },
+      {
         name: 'Org Settings',
         url: `/app/${org_id}/settings`,
         icon: Map,

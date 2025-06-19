@@ -1,34 +1,31 @@
-import MembersTable from '@/components/members-table'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { InviteMemberModal } from '@/components/invite-member-modal'
-import { DashboardHeader } from '@/components/dashboard-header'
-import { DashboardShell } from '@/components/dashboard-shell'
-import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
-import { getQueryClient } from '@/components/providers/get-query-client'
 import { api } from '@/queries'
-import { membersKeys } from '@/queries/keys'
+import { DashboardShell } from '@/components/dashboard-shell'
+import { DashboardHeader } from '@/components/dashboard-header'
+import {
+  dehydrate,
+  HydrationBoundary
+} from '@tanstack/react-query'
+import { getQueryClient } from '@/components/providers/get-query-client'
+import { invitationsKeys } from '@/queries/keys'
+import { InvitationsTable } from '@/components/invitations-table'
 
-export default async function MembersPage({
+export default async function InvitationsPage({
   params,
 }: {
-  params: Promise<{ org_id: string }>;
+  params: Promise<{ org_id: string }>
 }) {
-  const { org_id } = await params;
-  const supabase = await createClient();
-  const { data: user, error: userError } = await supabase.auth.getUser();
+  const { org_id } = await params
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
   if (!user) {
-    redirect('/login');
+    redirect('/auth/login')
   }
-  if (userError) {
-    console.error(userError);
-  }
-  const queryClient = getQueryClient();
-  await queryClient.prefetchQuery({
-    // eslint-disable-next-line @tanstack/query/exhaustive-deps
-    queryKey: membersKeys.list(org_id),
-    queryFn: () => api.members.getAll(supabase, org_id),
-  });
 
   const orgRoles = await api.roles.getByScope(
     supabase,
@@ -52,10 +49,17 @@ export default async function MembersPage({
     }
   }
 
+  const queryClient = getQueryClient()
+  await queryClient.prefetchQuery({
+    // eslint-disable-next-line @tanstack/query/exhaustive-deps
+    queryKey: invitationsKeys.list(org_id),
+    queryFn: () => api.invitations.getAll(supabase, org_id),
+  })
+
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       <DashboardShell>
-        <DashboardHeader heading='Members'>
+        <DashboardHeader heading='Invitations' >
           <InviteMemberModal
             orgId={org_id}
             orgRoles={orgRoles ?? []}
@@ -63,8 +67,8 @@ export default async function MembersPage({
             teamRolesMap={teamRolesMap}
           />
         </DashboardHeader>
-        <MembersTable orgId={org_id} />
+        <InvitationsTable orgId={org_id} />
       </DashboardShell>
     </HydrationBoundary>
-  );
+  )
 }

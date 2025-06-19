@@ -1,11 +1,13 @@
 import RolesTable from '@/components/roles-table'
-import CreateRoleForm from '@/components/create-role-form'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
 import { getQueryClient } from '@/components/providers/get-query-client'
 import { api } from '@/queries'
 import { rolesKeys } from '@/queries/keys'
+import { CreateRoleModal } from '@/components/create-role-modal'
+import { DashboardShell } from '@/components/dashboard-shell'
+import { DashboardHeader } from '@/components/dashboard-header'
 
 export default async function RolesPage({
   params,
@@ -32,16 +34,12 @@ export default async function RolesPage({
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto p-6 max-w-xl">
-          <h1 className="mb-6 text-3xl font-bold">Create Role</h1>
-          <CreateRoleForm orgId={org_id} teams={teams ?? []} />
-        </div>
-        <div className="container mx-auto p-6">
-          <h2 className="mb-4 text-2xl font-bold">Roles</h2>
-          <RolesTable orgId={org_id} />
-        </div>
-      </div>
+      <DashboardShell>
+        <DashboardHeader heading='Roles' headingLevel={1} >
+          <CreateRoleModal orgId={org_id} teams={teams} />
+        </DashboardHeader>
+        <RolesTable orgId={org_id} />
+      </DashboardShell>
     </HydrationBoundary>
   )
 }

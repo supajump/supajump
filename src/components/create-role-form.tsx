@@ -42,7 +42,7 @@ interface CreateRoleFormProps {
   teams: { id: string; name: string }[]
 }
 
-export default function CreateRoleForm({ orgId, teams }: CreateRoleFormProps) {
+export function CreateRoleForm({ orgId, teams }: CreateRoleFormProps) {
   const supabase = createClient()
   const form = useForm<FormValues>({
     defaultValues: {

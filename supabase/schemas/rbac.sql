@@ -37,3 +37,39 @@ $$;
 
 grant
 execute on function has_org_permission (text, text, text) to authenticated;
+
+-- RLS policies
+-- org_memberships
+create policy "Users can view other organization members" on public.org_memberships for
+select
+  to authenticated using (
+    has_org_permission (org_id, 'org_memberships', 'view')
+    or org_id in (
+      select
+        org_id
+      from
+        public.organizations
+      where
+        primary_owner_user_id = auth.uid ()
+    )
+  );
+
+-- organizations
+create policy "Users can view organizations they are members of" on public.organizations for
+select
+  to authenticated using (
+    id in (
+      select
+        supajump.get_organizations_for_current_user ()
+    )
+  );
+
+-- teams
+create policy "Users can view teams they are members of" on public.teams for
+select
+  to authenticated using (
+    id in (
+      select
+        supajump.get_teams_for_current_user ()
+    )
+  );

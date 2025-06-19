@@ -652,3 +652,121 @@ $$;
 
 grant
 execute on function public.create_team_and_add_current_user_as_owner (text, text) to authenticated;
+
+-- RLS Policies
+-- ────────────────────────
+-- ────────────────────────
+-- Roles
+-- ────────────────────────
+create policy "Primary owners of organization can view roles" on roles for
+select
+  using (
+    exists (
+      select
+        1
+      from
+        public.organizations o
+      where
+        o.primary_owner_user_id = auth.uid ()
+        and o.id = roles.org_id
+    )
+  );
+
+create policy "Primary owners of organization can create roles" on roles for insert
+with
+  check (
+    exists (
+      select
+        1
+      from
+        public.organizations o
+      where
+        o.primary_owner_user_id = auth.uid ()
+        and o.id = roles.org_id
+    )
+  );
+
+create policy "Primary owners of organization can update roles" on roles for
+update
+with
+  check (
+    exists (
+      select
+        1
+      from
+        public.organizations o
+      where
+        o.primary_owner_user_id = auth.uid ()
+        and o.id = roles.org_id
+    )
+  );
+
+create policy "Primary owners of organization can delete roles" on roles for delete using (
+  exists (
+    select
+      1
+    from
+      public.organizations o
+    where
+      o.primary_owner_user_id = auth.uid ()
+      and o.id = roles.org_id
+  )
+);
+
+-- ────────────────────────
+-- Role Permissions
+-- ────────────────────────
+create policy "Primary owners of organization can view role permissions" on role_permissions for
+select
+  using (
+    exists (
+      select
+        1
+      from
+        public.organizations o
+      where
+        o.primary_owner_user_id = auth.uid ()
+        and o.id = role_permissions.org_id
+    )
+  );
+
+create policy "Primary owners of organization can create role permissions" on role_permissions for insert
+with
+  check (
+    exists (
+      select
+        1
+      from
+        public.organizations o
+      where
+        o.primary_owner_user_id = auth.uid ()
+        and o.id = role_permissions.org_id
+    )
+  );
+
+create policy "Primary owners of organization can update role permissions" on role_permissions for
+update
+with
+  check (
+    exists (
+      select
+        1
+      from
+        public.organizations o
+      where
+        o.primary_owner_user_id = auth.uid ()
+        and o.id = role_permissions.org_id
+    )
+  );
+
+create policy "Primary owners of organization can delete role permissions" on role_permissions for delete using (
+  exists (
+    select
+      1
+    from
+      public.organizations o
+    where
+      o.primary_owner_user_id = auth.uid ()
+      and o.id = role_permissions.org_id
+  )
+);

@@ -7,7 +7,7 @@ export type Role = Database['public']['Tables']['roles']['Row']
 
 export const columns: ColumnDef<Role>[] = [
   {
-    accessorKey: 'name',
+    accessorKey: 'display_name',
     header: 'Name',
   },
   {
