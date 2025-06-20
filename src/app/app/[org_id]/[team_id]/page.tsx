@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { RecentPosts } from '@features/posts/recent-posts';
-import { CreatePostModal } from '@features/posts/create-post-modal';
+import { RecentPosts } from '@/features/posts/recent-posts';
+import { CreatePostModal } from '@/features/posts/create-post-modal';
 import { DashboardShell } from '@/components/dashboard-shell';
 import { DashboardHeader } from '@/components/dashboard-header';
 

@@ -1,7 +1,8 @@
-import MembersTable from '@features/members/members-table'
+
+import MembersTable from '@/features/members/members-table'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { InviteMemberModal } from '@features/members/invite-member-modal'
+import { InviteMemberModal } from '@/features/invitations/invite-member-modal'
 import { DashboardHeader } from '@/components/dashboard-header'
 import { DashboardShell } from '@/components/dashboard-shell'
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query'

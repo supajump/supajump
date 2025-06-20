@@ -1,11 +1,11 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import OnboardingForm from '@/components/onboarding-form';
+import OnboardingForm from '@/features/profile/onboarding-form';
 import { api } from '@/queries';
 import { organizationsKeys } from '@/queries/keys';
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query';
 import { getQueryClient } from '@/components/providers/get-query-client';
-import { OrganizationsList } from '@/components/organizations-list';
+import { OrganizationsList } from '@/features/organizations/organizations-list';
 import { DashboardShell } from '@/components/dashboard-shell';
 import { DashboardHeader } from '@/components/dashboard-header';
 

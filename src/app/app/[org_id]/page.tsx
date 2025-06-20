@@ -4,7 +4,7 @@ import { api } from '@/queries';
 import { teamsKeys } from '@/queries/keys';
 import { getQueryClient } from '@/components/providers/get-query-client';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
-import { TeamsList } from '@/components/teams-list';
+import { TeamsList } from '@/features/teams/teams-list';
 import { DashboardShell } from '@/components/dashboard-shell';
 import { DashboardHeader } from '@/components/dashboard-header';
 

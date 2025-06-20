@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { UpdateProfileForm } from '@/components/update-profile-form'
-import { ChangePasswordForm } from '@/components/change-password-form'
-import { DeleteAccountButton } from '@/components/delete-account-button'
+import { UpdateProfileForm } from '@/features/profile/update-profile-form'
+import { ChangePasswordForm } from '@/features/auth/change-password-form'
+import { DeleteAccountButton } from '@/features/profile/delete-account-button'
 import { api } from '@/queries'
 
 export default async function ProfilePage() {
