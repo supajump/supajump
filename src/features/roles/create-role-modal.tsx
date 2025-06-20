@@ -10,9 +10,10 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import {
-  CreateRoleForm } from '@/components/create-role-form'
+  CreateRoleForm,
+} from '@features/roles/create-role-form'
 import { PlusIcon } from 'lucide-react'
-import { Button } from './ui/button'
+import { Button } from '@/components/ui/button'
 
 interface CreateRoleModalProps {
   orgId: string
