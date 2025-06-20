@@ -2,7 +2,7 @@
 
 import { useInvitations } from '@/hooks/use-invitations';
 import { DataTable } from '@/components/data-table/data-table';
-import { columns, type Invitation } from '@/app/app/[org_id]/invitations/columns';
+import { columns, type Invitation } from '@/features/invitations/columns';
 
 export function InvitationsTable({ orgId }: { orgId: string }) {
   const { data = [] } = useInvitations(orgId);

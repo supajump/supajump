@@ -2,7 +2,7 @@
 
 import { usePosts } from '@/hooks/use-posts';
 import { DataTable } from '@/components/data-table/data-table';
-import { columns, type Post } from '@/app/app/[org_id]/[team_id]/posts/columns';
+import { columns, type Post } from '@/features/posts/columns';
 
 export default function PostsTable({
   orgId,
