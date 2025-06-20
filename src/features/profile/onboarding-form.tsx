@@ -37,7 +37,7 @@ export default function OnboardingForm() {
         method: 'POST',
         body: JSON.stringify({ tag: 'organizations' }),
       })
-      router.push(`/app/${data.orgId}/${data.teamId}/dashboard`)
+      router.push(`/app/${data.orgId}/${data.teamId}`)
     },
   })
 

@@ -3,9 +3,9 @@
 import * as React from 'react';
 
 import { NavMain } from '@/components/nav-main';
-import { NavTeams } from '@/components/nav-teams';
+import { NavTeams } from '@/features/teams/nav-teams';
 import { NavUser } from '@/components/nav-user';
-import { OrgTeamSwitcher } from '@/components/org-team-switcher';
+import { OrgTeamSwitcher } from '@/features/organizations/org-team-switcher';
 import {
   Sidebar,
   SidebarContent,

@@ -62,6 +62,7 @@ export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRe
                   placeholder="m@example.com"
                   required
                   value={email}
+                  tabIndex={1}
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
@@ -71,6 +72,7 @@ export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRe
                   <Link
                     href="/auth/forgot-password"
                     className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
+                    tabIndex={3}
                   >
                     Forgot your password?
                   </Link>
@@ -80,17 +82,18 @@ export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRe
                   type="password"
                   required
                   value={password}
+                  tabIndex={2}
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
               {error && <p className="text-sm text-red-500">{error}</p>}
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" tabIndex={4} className="w-full" disabled={isLoading}>
                 {isLoading ? 'Logging in...' : 'Login'}
               </Button>
             </div>
             <div className="mt-4 text-center text-sm">
               Don&apos;t have an account?{' '}
-              <Link href="/auth/sign-up" className="underline underline-offset-4">
+              <Link href="/auth/sign-up" tabIndex={5} className="underline underline-offset-4">
                 Sign up
               </Link>
             </div>
