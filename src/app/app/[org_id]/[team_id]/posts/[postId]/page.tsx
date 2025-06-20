@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import PostEditor from '@/features/posts/post-editor';
+import PostEditor from '@features/posts/post-editor';
 import { api } from '@/queries';
 
 export default async function Page({

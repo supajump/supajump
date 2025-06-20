@@ -1,3 +1,4 @@
+
 import MembersTable from '@/features/members/members-table'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'

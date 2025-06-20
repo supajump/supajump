@@ -10,8 +10,8 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import {
-  CreateRoleForm,
-} from '@/features/roles/create-role-form'
+  CreateRoleForm
+} from '@features/roles/create-role-form'
 import { PlusIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 

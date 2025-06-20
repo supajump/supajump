@@ -1,11 +1,11 @@
-import RolesTable from '@/features/roles/roles-table'
+import RolesTable from '@features/roles/roles-table'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
 import { getQueryClient } from '@/components/providers/get-query-client'
 import { api } from '@/queries'
 import { rolesKeys } from '@/queries/keys'
-import { CreateRoleModal } from '@/features/roles/create-role-modal'
+import { CreateRoleModal } from '@features/roles/create-role-modal'
 import { DashboardShell } from '@/components/dashboard-shell'
 import { DashboardHeader } from '@/components/dashboard-header'
 
