@@ -22,7 +22,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import CreateTeamDialog from './create-team-dialog';
+import CreateTeamDialog from '../teams/create-team-dialog';
 import { usePathname, useRouter } from 'next/navigation';
 import { useOrganizationsWithTeams } from '@/hooks/use-organization';
 import { cn } from '@/lib/utils';

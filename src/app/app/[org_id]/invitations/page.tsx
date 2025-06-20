@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { InviteMemberModal } from '@/components/invite-member-modal'
+import { InviteMemberModal } from '@/features/invitations/invite-member-modal'
 import { api } from '@/queries'
 import { DashboardShell } from '@/components/dashboard-shell'
 import { DashboardHeader } from '@/components/dashboard-header'
@@ -10,7 +10,7 @@ import {
 } from '@tanstack/react-query'
 import { getQueryClient } from '@/components/providers/get-query-client'
 import { invitationsKeys } from '@/queries/keys'
-import { InvitationsTable } from '@/components/invitations-table'
+import { InvitationsTable } from '@/features/invitations/invitations-table'
 
 export default async function InvitationsPage({
   params,

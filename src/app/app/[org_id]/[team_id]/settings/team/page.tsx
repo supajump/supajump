@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import UpdateTeamForm from '@/components/update-team-form'
-import { DeleteTeamButton } from '@/components/delete-team-button'
+import UpdateTeamForm from '@/features/teams/update-team-form'
+import { DeleteTeamButton } from '@/features/teams/delete-team-button'
 import { api } from '@/queries'
 
 export default async function TeamSettingsPage({
