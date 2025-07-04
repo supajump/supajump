@@ -29,6 +29,7 @@ create table
     role_id uuid references roles (id) on delete cascade,
     org_id text not null references organizations (id) on delete cascade,
     team_id text references teams (id) on delete cascade,
+    scope text not null check (scope in ('all', 'own')),
     resource text not null,
     action text not null,
     unique (org_id, team_id, role_id, resource, action),
