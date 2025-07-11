@@ -3,8 +3,8 @@ MATERIALISED user_permissions  (pre-computed)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
 create schema supajump;
 
-create materialized view
-    supajump.user_permissions_mv as
+create view
+    supajump.user_permissions_view as
 with
     direct as (
         /* org-scoped roles */
@@ -69,43 +69,4 @@ select
 from
     inherited;
 
-create unique index concurrently if not exists on supajump.user_permissions_mv (user_id, group_id, resource, action, scope);
-
-/* incremental refresh after any membership / role change */
-create
-or replace function supajump.refresh_permissions () returns trigger language plpgsql as $$
-begin
-  perform pg_sleep(0); -- quick noop to allow CONCURRENTLY
-  refresh materialized view concurrently supajump.user_permissions_mv;
-  return null;
-end $$;
-
--- attach to volatile link tables (AFTER STATEMENT → runs once)
-create trigger permissions_refresh_org_roles
-after insert
-or
-update
-or delete on public.org_member_roles for each statement
-execute procedure supajump.refresh_permissions ();
-
-create trigger permissions_refresh_team_roles
-after insert
-or
-update
-or delete on public.team_member_roles for each statement
-execute procedure supajump.refresh_permissions ();
-
-/*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-HELPER: current user's permissions
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
-create
-or replace function supajump.current_user_permissions (_resource text, _action text) returns table (group_id text, scope perm_scope) language sql stable -- lets planner treat result as constant
-parallel SAFE -- allows parallel join
-cost 1 rows 10 -- good cardinality hint
-as $$
-  SELECT group_id, scope
-  FROM   supajump.user_permissions_mv
-  WHERE  user_id  = auth.uid()
-    AND  resource = _resource
-    AND  action   = _action;
-$$;
+create unique index concurrently if not exists on supajump.user_permissions_view (user_id, group_id, resource, action, scope);

@@ -1,0 +1,1019 @@
+/*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MULTI-TENANT RBAC SCHEMA
+
+This schema provides a complete multi-tenant role-based access control system
+with hierarchical structure: Organizations → Teams → Users
+
+Key Features:
+- Multi-tenant isolation at organization level
+- Hierarchical permissions (org-level and team-level roles)
+- Role-based access control with granular permissions
+- Permission inheritance and cascading
+- Row-level security policies
+- Comprehensive helper functions for common operations
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
+-- Create the supajump schema for internal functions
+create schema if not exists supajump;
+
+/*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. CORE TENANT STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
+/**
+ * Organizations are the primary grouping for most objects within the system.
+ * They have many users, and all billing is connected to an organization.
+ *
+ * The primary owner user id is the user that is the owner of the organization.
+ * This is the user that is responsible for the organization and has full
+ * access to the organization.
+ */
+create table if not exists
+    public.organizations (
+        id uuid primary key default gen_random_uuid (),
+        created_at timestamp with time zone default now(),
+        updated_at timestamp with time zone,
+        primary_owner_user_id uuid references auth.users (id) on delete set null default auth.uid (),
+        name text not null,
+        type text default 'organization',
+        slug text,
+        constraint organizations_slug_unique unique (slug),
+        constraint organizations_type_check check (
+            type in ('super', 'organization', 'personal')
+        )
+    );
+
+alter table public.organizations enable row level security;
+
+/**
+ * Organization members are the users that are associated with an organization.
+ * They can be invited to join the organization, and can have different roles.
+ * The system does not enforce any permissions for roles, other than restricting
+ * billing and organization membership to only owners
+ */
+create table if not exists
+    public.org_memberships (
+        id uuid primary key default gen_random_uuid (),
+        created_at timestamp with time zone default now(),
+        updated_at timestamp with time zone,
+        user_id uuid not null references auth.users (id) on delete cascade,
+        org_id uuid not null references public.organizations (id) on delete cascade,
+        constraint org_memberships_org_user_unique unique (org_id, user_id)
+    );
+
+alter table public.org_memberships enable row level security;
+
+/**
+ * Teams are a grouping of users that are associated with an organization.
+ * They are used to group users together for a specific purpose.
+ *
+ * The primary owner user id is the user that is the owner of the team.
+ * This is the user that is responsible for the team and has full
+ * access to the team.
+ */
+create table if not exists
+    public.teams (
+        id uuid primary key default gen_random_uuid (),
+        created_at timestamp with time zone default now(),
+        updated_at timestamp with time zone,
+        slug text,
+        org_id uuid not null references organizations (id) on delete cascade,
+        primary_owner_user_id uuid not null references auth.users (id),
+        name text not null,
+        constraint teams_org_slug_unique unique (org_id, slug)
+    );
+
+alter table public.teams enable row level security;
+
+/**
+ * Team memberships are the users that are associated with a team.
+ * They can have different roles within the team.
+ */
+create table if not exists
+    public.team_memberships (
+        id uuid primary key default gen_random_uuid (),
+        created_at timestamp with time zone default now(),
+        updated_at timestamp with time zone,
+        team_id uuid not null references teams (id) on delete cascade,
+        user_id uuid not null references auth.users (id) on delete cascade,
+        constraint team_memberships_team_user_unique unique (team_id, user_id)
+    );
+
+alter table public.team_memberships enable row level security;
+
+/*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. ROLES AND PERMISSIONS SYSTEM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
+/**
+ * Roles define named collections of permissions within an organization.
+ * scope = 'organization' | 'team'
+ * name  = 'owner' | 'admin' | 'member' | 'post_editor' | …
+ */
+create table if not exists
+    public.roles (
+        id uuid primary key default gen_random_uuid (),
+        scope text not null,
+        org_id uuid not null references organizations (id) on delete cascade,
+        team_id uuid references teams (id) on delete cascade,
+        name text not null,
+        display_name text,
+        description text,
+        check (scope in ('organization', 'team')),
+        constraint roles_org_team_scope_name_unique unique (org_id, team_id, scope, name),
+        constraint roles_org_scope_name_unique unique (org_id, scope, name)
+    );
+
+alter table public.roles enable row level security;
+
+/**
+ * Role permissions define what actions roles can perform on resources.
+ * resource  = logical entity (posts, billing, settings …)
+ * action    = view | edit | delete | manage …
+ * scope     = all | own (whether permission applies to all records or just owned records) designated by owner_id = auth.uid()
+ * cascade_down = whether org-level permissions cascade to teams
+ * target_kind = what type of entities this permission cascades to
+ */
+create table if not exists
+    public.role_permissions (
+        id uuid primary key default gen_random_uuid (),
+        role_id uuid references roles (id) on delete cascade,
+        org_id uuid not null references organizations (id) on delete cascade,
+        team_id uuid references teams (id) on delete cascade,
+        scope text not null default 'all',
+        resource text not null,
+        action text not null,
+        cascade_down boolean default false,
+        target_kind text,
+        check (scope in ('all', 'own')),
+        constraint role_permissions_org_team_role_resource_action_unique unique (org_id, team_id, role_id, resource, action),
+        constraint role_permissions_org_role_resource_action_unique unique (org_id, role_id, resource, action)
+    );
+
+alter table public.role_permissions enable row level security;
+
+/**
+ * Organization member roles assign roles to organization members
+ */
+create table if not exists
+    public.org_member_roles (
+        id uuid primary key default gen_random_uuid (),
+        role_id uuid references roles (id) on delete cascade,
+        org_member_id uuid references org_memberships (id) on delete cascade,
+        org_id uuid not null references organizations (id) on delete cascade,
+        constraint org_member_roles_role_org_member_unique unique (role_id, org_member_id)
+    );
+
+alter table public.org_member_roles enable row level security;
+
+/**
+ * Team member roles assign roles to team members
+ */
+create table if not exists
+    public.team_member_roles (
+        id uuid primary key default gen_random_uuid (),
+        role_id uuid references roles (id) on delete cascade,
+        team_member_id uuid references team_memberships (id) on delete cascade,
+        team_id uuid not null references teams (id) on delete cascade,
+        constraint team_member_roles_role_team_member_unique unique (role_id, team_member_id)
+    );
+
+alter table public.team_member_roles enable row level security;
+
+/*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. UNIFIED GROUPS VIEW
+
+This provides a unified view of organizations and teams for permission inheritance
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
+create table if not exists
+    public.groups (
+        id uuid primary key, -- mirrors org/team id
+        org_id uuid not null references public.organizations (id), -- parent org_id, for orgs this is the org_id itself
+        kind text not null check (kind in ('organization', 'team')),
+        primary_owner_user_id uuid not null references auth.users (id),
+        created_at timestamp with time zone default now()
+    );
+
+alter table public.groups enable row level security;
+
+/*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. USER PERMISSIONS VIEW
+
+This view provides a permissions for all users across organizations
+and teams, including permission inheritance and cascading.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
+create view
+    supajump.user_permissions_view as
+with
+    direct as (
+        /* org-scoped roles */
+        select
+            om.user_id,
+            om.org_id as group_id,
+            rp.resource,
+            rp.action,
+            rp.scope,
+            rp.cascade_down,
+            rp.target_kind
+        from
+            public.org_memberships om
+            join public.org_member_roles omr on omr.org_member_id = om.id
+            join public.role_permissions rp on rp.role_id = omr.role_id
+        union all
+        /* team-scoped roles */
+        select
+            tm.user_id,
+            tm.team_id as group_id,
+            rp.resource,
+            rp.action,
+            rp.scope,
+            false as cascade_down,
+            null as target_kind
+        from
+            public.team_memberships tm
+            join public.team_member_roles tmr on tmr.team_member_id = tm.id
+            join public.role_permissions rp on rp.role_id = tmr.role_id
+    ),
+    inherited as (
+        select
+            *
+        from
+            direct
+        union all
+        /* cascade org → team */
+        select
+            d.user_id,
+            t.id,
+            d.resource,
+            d.action,
+            d.scope,
+            false,
+            null
+        from
+            direct d
+            join public.groups t on d.cascade_down
+            and (
+                d.target_kind is null
+                or d.target_kind = 'team'
+            )
+            and t.kind = 'team'
+            and t.org_id = d.group_id
+    )
+select
+    user_id,
+    group_id,
+    resource,
+    action,
+    scope
+from
+    inherited;
+
+/*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. INDEXES FOR OPTIMAL PERFORMANCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
+-- Core indexes for role lookups
+create index if not exists idx_roles_name_scope on public.roles (name, scope);
+
+create index if not exists idx_roles_scope_name on public.roles (scope, name);
+
+create index if not exists idx_roles_org_id on public.roles (org_id);
+
+-- Indexes for role permissions
+create index if not exists idx_role_permissions_role_resource_action on public.role_permissions (role_id, resource, action);
+
+create index if not exists idx_role_permissions_resource_action on public.role_permissions (resource, action);
+
+create index if not exists idx_role_permissions_org_id_resource_action on public.role_permissions (org_id, resource, action);
+
+create index if not exists idx_role_permissions_team_id_resource_action on public.role_permissions (team_id, resource, action)
+where
+    team_id is not null;
+
+-- Indexes for org member role lookups
+create index if not exists idx_org_member_roles_org_member_id on public.org_member_roles (org_member_id);
+
+create index if not exists idx_org_member_roles_role_id on public.org_member_roles (role_id);
+
+create index if not exists idx_org_member_roles_org_id_role_id on public.org_member_roles (org_id, role_id);
+
+-- Indexes for team member role lookups
+create index if not exists idx_team_member_roles_team_member_id on public.team_member_roles (team_member_id);
+
+create index if not exists idx_team_member_roles_role_id on public.team_member_roles (role_id);
+
+create index if not exists idx_team_member_roles_team_id_role_id on public.team_member_roles (team_id, role_id);
+
+-- Indexes for groups unified view
+create index if not exists idx_groups_org_id_id on public.groups (org_id, id);
+
+create index if not exists idx_groups_kind on public.groups (kind);
+
+-- Indexes for user permissions view
+create unique index if not exists idx_user_permissions_user_group_resource_action_scope on supajump.user_permissions_view (user_id, group_id, resource, action, scope);
+
+-- Owner bypass indexes
+create index if not exists idx_organizations_primary_owner_user_id_id on public.organizations (primary_owner_user_id, id);
+
+create index if not exists idx_teams_primary_owner_user_id_id on public.teams (primary_owner_user_id, id);
+
+-- Membership indexes
+create index if not exists idx_org_memberships_user_id on public.org_memberships (user_id);
+
+create index if not exists idx_org_memberships_org_id on public.org_memberships (org_id);
+
+create index if not exists idx_team_memberships_user_id on public.team_memberships (user_id);
+
+create index if not exists idx_team_memberships_team_id on public.team_memberships (team_id);
+
+/*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. TRIGGERS AND AUTOMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
+-- Timestamp triggers (assuming supajump.trigger_set_timestamps exists)
+create trigger if not exists set_timestamps_organizations before
+update on public.organizations for each row
+execute function supajump.trigger_set_timestamps ();
+
+create trigger if not exists set_timestamps_org_memberships before
+update on public.org_memberships for each row
+execute function supajump.trigger_set_timestamps ();
+
+-- Groups sync triggers for unified view
+create
+or replace function public.trg_sync_org () returns trigger language plpgsql as $$
+begin
+  insert into public.groups(id, org_id, kind, primary_owner_user_id)
+  values (new.id, new.id, 'organization', new.primary_owner_user_id)
+  on conflict(id) do update
+    set primary_owner_user_id = excluded.primary_owner_user_id;
+  return new;
+end $$;
+
+create trigger if not exists trg_org_sync
+after insert
+or
+update on public.organizations for each row
+execute procedure public.trg_sync_org ();
+
+create
+or replace function public.trg_sync_team () returns trigger language plpgsql as $$
+begin
+  insert into public.groups(id, org_id, kind, primary_owner_user_id)
+  values (new.id, new.org_id, 'team', new.primary_owner_user_id)
+  on conflict(id) do update
+    set org_id = excluded.org_id,
+        primary_owner_user_id = excluded.primary_owner_user_id;
+  return new;
+end $$;
+
+create trigger if not exists trg_team_sync
+after insert
+or
+update on public.teams for each row
+execute procedure public.trg_sync_team ();
+
+-- Protection triggers for sensitive fields
+create
+or replace function public.protect_organization_fields () returns trigger language plpgsql as $$
+begin
+  if current_user in ('authenticated', 'anon') then
+    -- these are protected fields that users are not allowed to update themselves
+    -- platform admins should be very careful about updating them as well.
+    if new.id <> old.id or new.primary_owner_user_id <> old.primary_owner_user_id then
+      raise exception 'you do not have permission to update this field';
+    end if;
+  end if;
+  return new;
+end $$;
+
+create trigger if not exists protect_organization_fields before
+update on public.organizations for each row
+execute function public.protect_organization_fields ();
+
+create
+or replace function public.protect_team_fields () returns trigger language plpgsql as $$
+begin
+  if current_user in ('authenticated', 'anon') then
+    -- these are protected fields that users are not allowed to update themselves
+    -- platform admins should be very careful about updating them as well.
+    if new.id <> old.id or new.primary_owner_user_id <> old.primary_owner_user_id then
+      raise exception 'you do not have permission to update this field';
+    end if;
+  end if;
+  return new;
+end $$;
+
+create trigger if not exists protect_team_fields before
+update on public.teams for each row
+execute function public.protect_team_fields ();
+
+/*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. PERMISSION CHECKING FUNCTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
+-- Helper function to get current user's permissions for a resource/action
+create
+or replace function supajump.current_user_permissions (_resource text, _action text) returns table (group_id uuid, scope text) language sql stable -- lets planner treat result as constant
+parallel SAFE -- allows parallel join
+cost 1 rows 10 -- good cardinality hint
+as $$
+  SELECT group_id, scope
+  FROM   supajump.user_permissions_view
+  WHERE  user_id  = auth.uid()
+    AND  resource = _resource
+    AND  action   = _action;
+$$;
+
+-- Team-level permission checking
+create
+or replace function public.has_team_permission (_team_id uuid, _resource text, _action text) returns boolean language sql security definer
+set
+    search_path = public as $$
+  select exists (
+    select 1
+    from team_memberships tm
+    join team_member_roles tmr on tmr.team_member_id = tm.id
+    join role_permissions rp on rp.role_id = tmr.role_id
+    where tm.team_id = _team_id
+      and tm.user_id = auth.uid()
+      and rp.resource = _resource
+      and rp.action = _action
+  );
+$$;
+
+-- Organization-level permission checking
+create
+or replace function public.has_org_permission (_org_id uuid, _resource text, _action text) returns boolean language sql security definer
+set
+    search_path = public as $$
+  select exists (
+    select 1
+    from org_memberships om
+    join org_member_roles omr on omr.org_member_id = om.id
+    join role_permissions rp on rp.role_id = omr.role_id
+    where om.org_id = _org_id
+      and om.user_id = auth.uid()
+      and rp.resource = _resource
+      and rp.action = _action
+  );
+$$;
+
+grant
+execute on function public.has_team_permission (uuid, text, text) to authenticated;
+
+grant
+execute on function public.has_org_permission (uuid, text, text) to authenticated;
+
+/*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8. ROLE MANAGEMENT HELPER FUNCTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
+-- Get role ID by name and scope
+create
+or replace function supajump.get_role_id_by_name (role_name text, role_scope text default 'organization') returns uuid language sql security definer
+set
+    search_path = public as $$
+  select id from roles where name = role_name and scope = role_scope limit 1
+$$;
+
+-- Get role name by ID
+create
+or replace function supajump.get_role_name_by_id (role_id uuid) returns text language sql security definer
+set
+    search_path = public as $$
+  select name from roles where id = role_id limit 1
+$$;
+
+-- Public convenience functions for applications
+create
+or replace function public.get_org_role_id (role_name text) returns uuid language sql security definer
+set
+    search_path = public as $$
+  select id from roles where name = role_name and scope = 'organization' limit 1
+$$;
+
+create
+or replace function public.get_team_role_id (role_name text) returns uuid language sql security definer
+set
+    search_path = public as $$
+  select id from roles where name = role_name and scope = 'team' limit 1
+$$;
+
+grant
+execute on function public.get_org_role_id (text) to authenticated;
+
+grant
+execute on function public.get_team_role_id (text) to authenticated;
+
+/*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+9. USER CONTEXT FUNCTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
+-- Get organizations for current user
+create
+or replace function supajump.get_organizations_for_current_user (passed_in_role_id uuid default null) returns setof uuid language sql security definer
+set
+    search_path = public as $$
+  select distinct om.org_id
+  from org_memberships om
+  join org_member_roles omr on omr.org_member_id = om.id
+  where om.user_id = auth.uid()
+    and (omr.role_id = passed_in_role_id or passed_in_role_id is null)
+$$;
+
+-- Get organizations for current user by role name
+create
+or replace function public.get_organizations_for_current_user_by_role_name (role_name text) returns setof text language sql security definer
+set
+    search_path = public as $$
+  select distinct om.org_id
+  from org_memberships om
+  join org_member_roles omr on omr.org_member_id = om.id
+  join roles r on r.id = omr.role_id
+  where om.user_id = auth.uid()
+    and r.scope = 'organization'
+    and r.name = role_name
+$$;
+
+-- Get teams for current user
+create
+or replace function supajump.get_teams_for_current_user (passed_in_role_id uuid default null) returns setof text language sql security definer
+set
+    search_path = public as $$
+  select distinct tm.team_id
+  from team_memberships tm
+  join team_member_roles tmr on tmr.team_member_id = tm.id
+  where tm.user_id = auth.uid()
+    and (tmr.role_id = passed_in_role_id or passed_in_role_id is null)
+$$;
+
+-- Get teams for current user by role name
+create
+or replace function public.get_teams_for_current_user_by_role_name (role_name text) returns setof text language sql security definer
+set
+    search_path = public as $$
+  select distinct tm.team_id
+  from team_memberships tm
+  join team_member_roles tmr on tmr.team_member_id = tm.id
+  join roles r on r.id = tmr.role_id
+  where tm.user_id = auth.uid()
+    and r.scope = 'team'
+    and r.name = role_name
+$$;
+
+grant
+execute on function public.get_organizations_for_current_user_by_role_name (text) to authenticated;
+
+grant
+execute on function public.get_teams_for_current_user_by_role_name (text) to authenticated;
+
+-- Get current user's role info for an organization
+create
+or replace function public.current_user_org_member_role (lookup_org_id uuid) returns jsonb language plpgsql as $$
+declare
+  user_org_member_roles jsonb;
+  is_organization_primary_owner boolean;
+  is_personal boolean;
+begin
+  if lookup_org_id is null then
+    raise exception 'org_id is required';
+  end if;
+
+  -- Get all roles for the user in this organization
+  select jsonb_agg(
+    jsonb_build_object(
+      'role_id', r.id,
+      'role_name', r.name,
+      'display_name', r.display_name,
+      'description', r.description
+    )
+  )
+  into user_org_member_roles
+  from org_memberships om
+  join org_member_roles omr on omr.org_member_id = om.id
+  join roles r on r.id = omr.role_id
+  where om.user_id = auth.uid() and om.org_id = lookup_org_id;
+
+  select
+    (primary_owner_user_id = auth.uid()), (type = 'personal')
+  into
+    is_organization_primary_owner, is_personal
+  from organizations
+  where id = lookup_org_id;
+
+  if user_org_member_roles is null then
+    return null;
+  end if;
+
+  return jsonb_build_object(
+    'org_member_roles', user_org_member_roles,
+    'is_primary_owner', is_organization_primary_owner,
+    'is_personal', is_personal
+  );
+end;
+$$;
+
+-- Get current user's role info for a team
+create
+or replace function public.current_user_teams_member_role (lookup_team_id uuid) returns jsonb language plpgsql as $$
+declare
+  user_teams_member_roles jsonb;
+  is_team_primary_owner boolean;
+begin
+  if lookup_team_id is null then
+    raise exception 'team_id is required';
+  end if;
+
+  -- Get all roles for the user in this team
+  select jsonb_agg(
+    jsonb_build_object(
+      'role_id', r.id,
+      'role_name', r.name,
+      'display_name', r.display_name,
+      'description', r.description
+    )
+  )
+  into user_teams_member_roles
+  from team_memberships tm
+  join team_member_roles tmr on tmr.team_member_id = tm.id
+  join roles r on r.id = tmr.role_id
+  where tm.user_id = auth.uid() and tm.team_id = lookup_team_id;
+
+  select primary_owner_user_id = auth.uid() 
+  into is_team_primary_owner 
+  from teams where id = lookup_team_id;
+
+  if user_teams_member_roles is null then
+    return null;
+  end if;
+
+  return jsonb_build_object(
+    'teams_member_roles', user_teams_member_roles,
+    'is_primary_owner', is_team_primary_owner
+  );
+end;
+$$;
+
+grant
+execute on function public.current_user_org_member_role (text) to authenticated;
+
+grant
+execute on function public.current_user_teams_member_role (text) to authenticated;
+
+/*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+10. ORGANIZATION AND TEAM CREATION FUNCTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
+-- Create organization with current user as owner
+create
+or replace function public.create_organization_and_add_current_user_as_owner (
+    name text,
+    type text default 'organization'
+) returns text language plpgsql security definer as $$
+declare
+  new_org_id uuid;
+  owner_role_id uuid;
+  new_member_id uuid;
+begin
+  insert into public.organizations (name, type, primary_owner_user_id)
+  values (name, type, auth.uid())
+  returning id into new_org_id;
+
+  if not exists (select 1 from organizations where id = new_org_id) then
+    raise exception 'failed to create organization.';
+  end if;
+
+  -- Get the owner role ID using helper function (internal use only)
+  owner_role_id := supajump.get_role_id_by_name('owner', 'organization');
+
+  if owner_role_id is null then
+    raise exception 'Owner role not found in roles table';
+  end if;
+
+  -- Insert the membership first
+  insert into public.org_memberships (org_id, user_id)
+  values (new_org_id, auth.uid())
+  returning id into new_member_id;
+
+  -- Then assign the owner role
+  insert into public.org_member_roles (role_id, org_member_id, org_id)
+  values (owner_role_id, new_member_id, new_org_id);
+
+  return new_org_id;
+exception
+  when unique_violation then
+    raise exception 'an organization with that unique id already exists';
+end;
+$$;
+
+-- Create team with current user as owner
+create
+or replace function public.create_team_and_add_current_user_as_owner (team_name text, org_id uuid) returns text language plpgsql security definer
+set
+    search_path = public as $$
+declare
+  new_team_id uuid;
+  owner_role_id uuid;
+  new_member_id uuid;
+  is_member boolean;
+  is_primary_owner boolean;
+begin
+  -- verify the current user is a member of the provided organization
+  select exists(
+    select 1
+    from org_memberships om
+    where om.user_id = auth.uid()
+      and om.org_id = org_id
+  ) into is_member;
+
+  -- check if the current user is the primary owner of the organization
+  select primary_owner_user_id = auth.uid() 
+  into is_primary_owner 
+  from organizations where id = org_id;
+
+  if is_member is not true and is_primary_owner is not true then
+    raise exception 'you must be a member of the organization to create a team';
+  end if;
+
+  -- Get the owner role ID for validation
+  owner_role_id := supajump.get_role_id_by_name('owner', 'team');
+
+  if owner_role_id is null then
+    raise exception 'Team owner role not found in roles table';
+  end if;
+
+  -- Insert into teams
+  insert into public.teams (name, org_id, primary_owner_user_id)
+  values (team_name, org_id, auth.uid())
+  returning id into new_team_id;
+
+  -- Add current user as a member
+  insert into public.team_memberships (team_id, user_id)
+  values (new_team_id, auth.uid())
+  returning id into new_member_id;
+
+  -- Assign owner role
+  insert into public.team_member_roles (role_id, team_member_id, team_id)
+  values (owner_role_id, new_member_id, new_team_id);
+
+  return new_team_id;
+end;
+$$;
+
+grant
+execute on function public.create_organization_and_add_current_user_as_owner (text, text) to authenticated;
+
+grant
+execute on function public.create_team_and_add_current_user_as_owner (text, text) to authenticated;
+
+/*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+11. ROW LEVEL SECURITY POLICIES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
+-- Organizations policies
+create policy "Users can view organizations they are members of" on public.organizations for
+select
+    to authenticated using (
+        id in (
+            select
+                supajump.get_organizations_for_current_user ()
+        )
+    );
+
+-- Organization memberships policies  
+create policy "Users can view other organization members" on public.org_memberships for
+select
+    to authenticated using (
+        has_org_permission (org_id, 'org_memberships', 'view')
+        or org_id in (
+            select
+                org_id
+            from
+                organizations
+            where
+                primary_owner_user_id = auth.uid ()
+        )
+    );
+
+-- Teams policies
+create policy "Users can view teams they are members of" on public.teams for
+select
+    to authenticated using (
+        id in (
+            select
+                supajump.get_teams_for_current_user ()
+        )
+    );
+
+-- Roles policies (only primary owners can manage roles)
+create policy "Primary owners of organization can view roles" on public.roles for
+select
+    using (
+        exists (
+            select
+                1
+            from
+                organizations o
+            where
+                o.primary_owner_user_id = auth.uid ()
+                and o.id = roles.org_id
+        )
+    );
+
+create policy "Primary owners of organization can create roles" on public.roles for insert
+with
+    check (
+        exists (
+            select
+                1
+            from
+                organizations o
+            where
+                o.primary_owner_user_id = auth.uid ()
+                and o.id = roles.org_id
+        )
+    );
+
+create policy "Primary owners of organization can update roles" on public.roles for
+update
+with
+    check (
+        exists (
+            select
+                1
+            from
+                organizations o
+            where
+                o.primary_owner_user_id = auth.uid ()
+                and o.id = roles.org_id
+        )
+    );
+
+create policy "Primary owners of organization can delete roles" on public.roles for delete using (
+    exists (
+        select
+            1
+        from
+            organizations o
+        where
+            o.primary_owner_user_id = auth.uid ()
+            and o.id = roles.org_id
+    )
+);
+
+-- Role permissions policies (only primary owners can manage)
+create policy "Primary owners of organization can view role permissions" on public.role_permissions for
+select
+    using (
+        exists (
+            select
+                1
+            from
+                organizations o
+            where
+                o.primary_owner_user_id = auth.uid ()
+                and o.id = role_permissions.org_id
+        )
+    );
+
+create policy "Primary owners of organization can create role permissions" on public.role_permissions for insert
+with
+    check (
+        exists (
+            select
+                1
+            from
+                organizations o
+            where
+                o.primary_owner_user_id = auth.uid ()
+                and o.id = role_permissions.org_id
+        )
+    );
+
+create policy "Primary owners of organization can update role permissions" on public.role_permissions for
+update
+with
+    check (
+        exists (
+            select
+                1
+            from
+                organizations o
+            where
+                o.primary_owner_user_id = auth.uid ()
+                and o.id = role_permissions.org_id
+        )
+    );
+
+create policy "Primary owners of organization can delete role permissions" on public.role_permissions for delete using (
+    exists (
+        select
+            1
+        from
+            organizations o
+        where
+            o.primary_owner_user_id = auth.uid ()
+            and o.id = role_permissions.org_id
+    )
+);
+
+/*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+12. GENERIC RLS POLICY TEMPLATES
+
+These are template policies that can be applied to any table that follows
+the multi-tenant pattern with org_id, team_id, and owner_id columns.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
+-- Template for SELECT policies
+-- Replace <TABLE_NAME> with your actual table name
+/*
+create policy "rls_select_<TABLE_NAME>" on <TABLE_NAME> for select to authenticated using (
+exists (
+select 1
+from supajump.user_permissions_view up
+where up.user_id = auth.uid()
+and up.group_id = <TABLE_NAME>.org_id
+and up.resource = '<TABLE_NAME>'
+and up.action = 'view'
+and (
+up.scope = 'all'
+or (up.scope = 'own' and <TABLE_NAME>.owner_id = auth.uid())
+)
+)
+-- Team-level permissions (if table has team_id)
+or exists (
+select 1
+from supajump.user_permissions_view up
+where up.user_id = auth.uid()
+and up.group_id = <TABLE_NAME>.team_id
+and up.resource = '<TABLE_NAME>'
+and up.action = 'view'
+and (
+up.scope = 'all'
+or (up.scope = 'own' and <TABLE_NAME>.owner_id = auth.uid())
+)
+)
+-- Owner bypass
+or exists (
+select 1
+from organizations o
+where o.id = <TABLE_NAME>.org_id
+and o.primary_owner_user_id = auth.uid()
+)
+or (
+<TABLE_NAME>.team_id is not null
+and exists (
+select 1
+from teams t
+where t.id = <TABLE_NAME>.team_id
+and t.primary_owner_user_id = auth.uid()
+)
+)
+);
+ */
+-- Template for INSERT policies  
+-- Replace <TABLE_NAME> with your actual table name
+/*
+create policy "rls_insert_<TABLE_NAME>" on <TABLE_NAME> for insert to authenticated with check (
+exists (
+select 1
+from supajump.user_permissions_view up
+where up.user_id = auth.uid()
+and up.group_id = new.org_id
+and up.resource = '<TABLE_NAME>'
+and up.action = 'create'
+and (
+up.scope = 'all'
+or (up.scope = 'own' and new.owner_id = auth.uid())
+)
+)
+-- Team-level permissions (if table has team_id)
+or exists (
+select 1
+from supajump.user_permissions_view up
+where up.user_id = auth.uid()
+and up.group_id = new.team_id
+and up.resource = '<TABLE_NAME>'
+and up.action = 'create'
+and (
+up.scope = 'all'
+or (up.scope = 'own' and new.owner_id = auth.uid())
+)
+)
+-- Owner bypass
+or exists (
+select 1
+from organizations o
+where o.id = new.org_id
+and o.primary_owner_user_id = auth.uid()
+)
+or (
+new.team_id is not null
+and exists (
+select 1
+from teams t
+where t.id = new.team_id
+and t.primary_owner_user_id = auth.uid()
+)
+)
+);
+ */
+-- Similar templates exist for UPDATE and DELETE policies
+-- Follow the same pattern, checking permissions for the specific action type
+/*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+END OF MULTI-TENANT RBAC SCHEMA
+
+This schema provides a complete foundation for multi-tenant applications
+with sophisticated role-based access control, permission inheritance,
+and comprehensive security policies.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
