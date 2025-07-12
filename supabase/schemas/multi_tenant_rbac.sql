@@ -116,13 +116,7 @@ create table if not exists
     name text not null,
     display_name text,
     description text,
-    check (scope in ('organization', 'team')),
-    constraint roles_org_team_scope_name_unique unique (org_id, team_id, scope, name)
-    where
-      team_id is not null,
-      constraint roles_org_scope_name_unique unique (org_id, scope, name)
-    where
-      team_id is null
+    check (scope in ('organization', 'team'))
   );
 
 alter table public.roles enable row level security;
@@ -309,24 +303,23 @@ create index if not exists idx_groups_org_id_id on public.groups (org_id, id);
 
 create index if not exists idx_groups_kind on public.groups (kind);
 
--- Indexes for user permissions view
-create unique index if not exists idx_user_permissions_user_group_resource_action_scope on supajump.user_permissions_view (user_id, group_id, resource, action, scope);
+-- The user_permissions_view is a view so it cannot be indexed
 
 -- Indexes for the new partial unique constraints
-create index if not exists idx_roles_org_team_scope_name_team_not_null on public.roles (org_id, team_id, scope, name)
+create unique index if not exists idx_roles_org_team_scope_name_team_not_null on public.roles (org_id, team_id, scope, name)
 where
   team_id is not null;
 
-create index if not exists idx_roles_org_scope_name_team_null on public.roles (org_id, scope, name)
+create unique index if not exists idx_roles_org_scope_name_team_null on public.roles (org_id, scope, name)
 where
   team_id is null;
 
 -- Partial indexes for role_permissions unique constraints
-create index if not exists idx_role_permissions_org_team_role_resource_action_team_not_null on public.role_permissions (org_id, team_id, role_id, resource, action)
+create unique index if not exists idx_role_permissions_org_team_role_resource_action_team_not_null on public.role_permissions (org_id, team_id, role_id, resource, action)
 where
   team_id is not null;
 
-create index if not exists idx_role_permissions_org_role_resource_action_team_null on public.role_permissions (org_id, role_id, resource, action)
+create unique index if not exists idx_role_permissions_org_role_resource_action_team_null on public.role_permissions (org_id, role_id, resource, action)
 where
   team_id is null;
 
@@ -344,24 +337,19 @@ create index if not exists idx_team_memberships_user_id on public.team_membershi
 
 create index if not exists idx_team_memberships_team_id on public.team_memberships (team_id);
 
--- App settings index for efficient lookups
-create index if not exists idx_app_settings_key on public.app_settings (key);
 
 /*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 6. TRIGGERS AND AUTOMATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
 -- Timestamp triggers (assuming supajump.trigger_set_timestamps exists)
-create trigger if not exists set_timestamps_organizations before
+create trigger set_timestamps_organizations before
 update on public.organizations for each row
 execute function supajump.trigger_set_timestamps ();
 
-create trigger if not exists set_timestamps_org_memberships before
+create trigger set_timestamps_org_memberships before
 update on public.org_memberships for each row
 execute function supajump.trigger_set_timestamps ();
 
-create trigger if not exists set_timestamps_app_settings before
-update on public.app_settings for each row
-execute function supajump.trigger_set_timestamps ();
 
 -- Groups sync triggers for unified view
 create
@@ -374,7 +362,7 @@ begin
   return new;
 end $$;
 
-create trigger if not exists trg_org_sync
+create trigger trg_org_sync
 after insert
 or
 update on public.organizations for each row
@@ -391,7 +379,7 @@ begin
   return new;
 end $$;
 
-create trigger if not exists trg_team_sync
+create trigger trg_team_sync
 after insert
 or
 update on public.teams for each row
@@ -411,7 +399,7 @@ begin
   return new;
 end $$;
 
-create trigger if not exists protect_organization_fields before
+create trigger protect_organization_fields before
 update on public.organizations for each row
 execute function public.protect_organization_fields ();
 
@@ -428,7 +416,7 @@ begin
   return new;
 end $$;
 
-create trigger if not exists protect_team_fields before
+create trigger protect_team_fields before
 update on public.teams for each row
 execute function public.protect_team_fields ();
 
@@ -535,6 +523,9 @@ create table if not exists
     updated_at timestamp with time zone default now()
   );
 
+-- App settings index for efficient lookups
+create index if not exists idx_app_settings_key on public.app_settings (key);
+
 alter table public.app_settings enable row level security;
 
 -- Insert default setting for dynamic roles (disabled by default for security)
@@ -543,6 +534,11 @@ insert into
 values
   ('dynamic_roles_enabled', 'false'::jsonb) on conflict (key)
 do nothing;
+
+-- Timestamp trigger for app_settings
+create trigger set_timestamps_app_settings before
+update on public.app_settings for each row
+execute function supajump.trigger_set_timestamps ();
 
 -- Function to check if dynamic roles are enabled globally
 create
@@ -845,10 +841,10 @@ end;
 $$;
 
 grant
-execute on function public.current_user_org_member_role (text) to authenticated;
+execute on function public.current_user_org_member_role (uuid) to authenticated;
 
 grant
-execute on function public.current_user_teams_member_role (text) to authenticated;
+execute on function public.current_user_teams_member_role (uuid) to authenticated;
 
 -- Bulk role assignment for better performance
 create
@@ -1005,7 +1001,7 @@ grant
 execute on function public.create_organization_and_add_current_user_as_owner (text, text) to authenticated;
 
 grant
-execute on function public.create_team_and_add_current_user_as_owner (text, text) to authenticated;
+execute on function public.create_team_and_add_current_user_as_owner (text, uuid) to authenticated;
 
 /*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 11. ROW LEVEL SECURITY POLICIES
