@@ -27,19 +27,19 @@ create schema if not exists supajump;
  * access to the organization.
  */
 create table if not exists
-    public.organizations (
-        id uuid primary key default gen_random_uuid (),
-        created_at timestamp with time zone default now(),
-        updated_at timestamp with time zone,
-        primary_owner_user_id uuid references auth.users (id) on delete set null default auth.uid (),
-        name text not null,
-        type text default 'organization',
-        slug text,
-        constraint organizations_slug_unique unique (slug),
-        constraint organizations_type_check check (
-            type in ('super', 'organization', 'personal')
-        )
-    );
+  public.organizations (
+    id uuid primary key default gen_random_uuid (),
+    created_at timestamp with time zone default now(),
+    updated_at timestamp with time zone,
+    primary_owner_user_id uuid references auth.users (id) on delete set null default auth.uid (),
+    name text not null,
+    type text default 'organization',
+    slug text,
+    constraint organizations_slug_unique unique (slug),
+    constraint organizations_type_check check (
+      type in ('super', 'organization', 'personal')
+    )
+  );
 
 alter table public.organizations enable row level security;
 
@@ -50,14 +50,14 @@ alter table public.organizations enable row level security;
  * billing and organization membership to only owners
  */
 create table if not exists
-    public.org_memberships (
-        id uuid primary key default gen_random_uuid (),
-        created_at timestamp with time zone default now(),
-        updated_at timestamp with time zone,
-        user_id uuid not null references auth.users (id) on delete cascade,
-        org_id uuid not null references public.organizations (id) on delete cascade,
-        constraint org_memberships_org_user_unique unique (org_id, user_id)
-    );
+  public.org_memberships (
+    id uuid primary key default gen_random_uuid (),
+    created_at timestamp with time zone default now(),
+    updated_at timestamp with time zone,
+    user_id uuid not null references auth.users (id) on delete cascade,
+    org_id uuid not null references public.organizations (id) on delete cascade,
+    constraint org_memberships_org_user_unique unique (org_id, user_id)
+  );
 
 alter table public.org_memberships enable row level security;
 
@@ -70,16 +70,16 @@ alter table public.org_memberships enable row level security;
  * access to the team.
  */
 create table if not exists
-    public.teams (
-        id uuid primary key default gen_random_uuid (),
-        created_at timestamp with time zone default now(),
-        updated_at timestamp with time zone,
-        slug text,
-        org_id uuid not null references organizations (id) on delete cascade,
-        primary_owner_user_id uuid not null references auth.users (id),
-        name text not null,
-        constraint teams_org_slug_unique unique (org_id, slug)
-    );
+  public.teams (
+    id uuid primary key default gen_random_uuid (),
+    created_at timestamp with time zone default now(),
+    updated_at timestamp with time zone,
+    slug text,
+    org_id uuid not null references organizations (id) on delete cascade,
+    primary_owner_user_id uuid not null references auth.users (id),
+    name text not null,
+    constraint teams_org_slug_unique unique (org_id, slug)
+  );
 
 alter table public.teams enable row level security;
 
@@ -88,14 +88,14 @@ alter table public.teams enable row level security;
  * They can have different roles within the team.
  */
 create table if not exists
-    public.team_memberships (
-        id uuid primary key default gen_random_uuid (),
-        created_at timestamp with time zone default now(),
-        updated_at timestamp with time zone,
-        team_id uuid not null references teams (id) on delete cascade,
-        user_id uuid not null references auth.users (id) on delete cascade,
-        constraint team_memberships_team_user_unique unique (team_id, user_id)
-    );
+  public.team_memberships (
+    id uuid primary key default gen_random_uuid (),
+    created_at timestamp with time zone default now(),
+    updated_at timestamp with time zone,
+    team_id uuid not null references teams (id) on delete cascade,
+    user_id uuid not null references auth.users (id) on delete cascade,
+    constraint team_memberships_team_user_unique unique (team_id, user_id)
+  );
 
 alter table public.team_memberships enable row level security;
 
@@ -108,18 +108,22 @@ alter table public.team_memberships enable row level security;
  * name  = 'owner' | 'admin' | 'member' | 'post_editor' | …
  */
 create table if not exists
-    public.roles (
-        id uuid primary key default gen_random_uuid (),
-        scope text not null,
-        org_id uuid not null references organizations (id) on delete cascade,
-        team_id uuid references teams (id) on delete cascade,
-        name text not null,
-        display_name text,
-        description text,
-        check (scope in ('organization', 'team')),
-        constraint roles_org_team_scope_name_unique unique (org_id, team_id, scope, name),
-        constraint roles_org_scope_name_unique unique (org_id, scope, name)
-    );
+  public.roles (
+    id uuid primary key default gen_random_uuid (),
+    scope text not null,
+    org_id uuid not null references organizations (id) on delete cascade,
+    team_id uuid references teams (id) on delete cascade,
+    name text not null,
+    display_name text,
+    description text,
+    check (scope in ('organization', 'team')),
+    constraint roles_org_team_scope_name_unique unique (org_id, team_id, scope, name)
+    where
+      team_id is not null,
+      constraint roles_org_scope_name_unique unique (org_id, scope, name)
+    where
+      team_id is null
+  );
 
 alter table public.roles enable row level security;
 
@@ -132,20 +136,20 @@ alter table public.roles enable row level security;
  * target_kind = what type of entities this permission cascades to
  */
 create table if not exists
-    public.role_permissions (
-        id uuid primary key default gen_random_uuid (),
-        role_id uuid references roles (id) on delete cascade,
-        org_id uuid not null references organizations (id) on delete cascade,
-        team_id uuid references teams (id) on delete cascade,
-        scope text not null default 'all',
-        resource text not null,
-        action text not null,
-        cascade_down boolean default false,
-        target_kind text,
-        check (scope in ('all', 'own')),
-        constraint role_permissions_org_team_role_resource_action_unique unique (org_id, team_id, role_id, resource, action),
-        constraint role_permissions_org_role_resource_action_unique unique (org_id, role_id, resource, action)
-    );
+  public.role_permissions (
+    id uuid primary key default gen_random_uuid (),
+    role_id uuid references roles (id) on delete cascade,
+    org_id uuid not null references organizations (id) on delete cascade,
+    team_id uuid references teams (id) on delete cascade,
+    scope text not null default 'all',
+    resource text not null,
+    action text not null,
+    cascade_down boolean default false,
+    target_kind text,
+    check (scope in ('all', 'own')),
+    constraint role_permissions_org_team_role_resource_action_unique unique (org_id, team_id, role_id, resource, action),
+    constraint role_permissions_org_role_resource_action_unique unique (org_id, role_id, resource, action)
+  );
 
 alter table public.role_permissions enable row level security;
 
@@ -153,13 +157,13 @@ alter table public.role_permissions enable row level security;
  * Organization member roles assign roles to organization members
  */
 create table if not exists
-    public.org_member_roles (
-        id uuid primary key default gen_random_uuid (),
-        role_id uuid references roles (id) on delete cascade,
-        org_member_id uuid references org_memberships (id) on delete cascade,
-        org_id uuid not null references organizations (id) on delete cascade,
-        constraint org_member_roles_role_org_member_unique unique (role_id, org_member_id)
-    );
+  public.org_member_roles (
+    id uuid primary key default gen_random_uuid (),
+    role_id uuid references roles (id) on delete cascade,
+    org_member_id uuid references org_memberships (id) on delete cascade,
+    org_id uuid not null references organizations (id) on delete cascade,
+    constraint org_member_roles_role_org_member_unique unique (role_id, org_member_id)
+  );
 
 alter table public.org_member_roles enable row level security;
 
@@ -167,13 +171,13 @@ alter table public.org_member_roles enable row level security;
  * Team member roles assign roles to team members
  */
 create table if not exists
-    public.team_member_roles (
-        id uuid primary key default gen_random_uuid (),
-        role_id uuid references roles (id) on delete cascade,
-        team_member_id uuid references team_memberships (id) on delete cascade,
-        team_id uuid not null references teams (id) on delete cascade,
-        constraint team_member_roles_role_team_member_unique unique (role_id, team_member_id)
-    );
+  public.team_member_roles (
+    id uuid primary key default gen_random_uuid (),
+    role_id uuid references roles (id) on delete cascade,
+    team_member_id uuid references team_memberships (id) on delete cascade,
+    team_id uuid not null references teams (id) on delete cascade,
+    constraint team_member_roles_role_team_member_unique unique (role_id, team_member_id)
+  );
 
 alter table public.team_member_roles enable row level security;
 
@@ -183,13 +187,13 @@ alter table public.team_member_roles enable row level security;
 This provides a unified view of organizations and teams for permission inheritance
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
 create table if not exists
-    public.groups (
-        id uuid primary key, -- mirrors org/team id
-        org_id uuid not null references public.organizations (id), -- parent org_id, for orgs this is the org_id itself
-        kind text not null check (kind in ('organization', 'team')),
-        primary_owner_user_id uuid not null references auth.users (id),
-        created_at timestamp with time zone default now()
-    );
+  public.groups (
+    id uuid primary key, -- mirrors org/team id
+    org_id uuid not null references public.organizations (id), -- parent org_id, for orgs this is the org_id itself
+    kind text not null check (kind in ('organization', 'team')),
+    primary_owner_user_id uuid not null references auth.users (id),
+    created_at timestamp with time zone default now()
+  );
 
 alter table public.groups enable row level security;
 
@@ -200,70 +204,70 @@ This view provides a permissions for all users across organizations
 and teams, including permission inheritance and cascading.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
 create view
-    supajump.user_permissions_view as
+  supajump.user_permissions_view as
 with
-    direct as (
-        /* org-scoped roles */
-        select
-            om.user_id,
-            om.org_id as group_id,
-            rp.resource,
-            rp.action,
-            rp.scope,
-            rp.cascade_down,
-            rp.target_kind
-        from
-            public.org_memberships om
-            join public.org_member_roles omr on omr.org_member_id = om.id
-            join public.role_permissions rp on rp.role_id = omr.role_id
-        union all
-        /* team-scoped roles */
-        select
-            tm.user_id,
-            tm.team_id as group_id,
-            rp.resource,
-            rp.action,
-            rp.scope,
-            false as cascade_down,
-            null as target_kind
-        from
-            public.team_memberships tm
-            join public.team_member_roles tmr on tmr.team_member_id = tm.id
-            join public.role_permissions rp on rp.role_id = tmr.role_id
-    ),
-    inherited as (
-        select
-            *
-        from
-            direct
-        union all
-        /* cascade org → team */
-        select
-            d.user_id,
-            t.id,
-            d.resource,
-            d.action,
-            d.scope,
-            false,
-            null
-        from
-            direct d
-            join public.groups t on d.cascade_down
-            and (
-                d.target_kind is null
-                or d.target_kind = 'team'
-            )
-            and t.kind = 'team'
-            and t.org_id = d.group_id
-    )
+  direct as (
+    /* org-scoped roles */
+    select
+      om.user_id,
+      om.org_id as group_id,
+      rp.resource,
+      rp.action,
+      rp.scope,
+      rp.cascade_down,
+      rp.target_kind
+    from
+      public.org_memberships om
+      join public.org_member_roles omr on omr.org_member_id = om.id
+      join public.role_permissions rp on rp.role_id = omr.role_id
+    union all
+    /* team-scoped roles */
+    select
+      tm.user_id,
+      tm.team_id as group_id,
+      rp.resource,
+      rp.action,
+      rp.scope,
+      false as cascade_down,
+      null as target_kind
+    from
+      public.team_memberships tm
+      join public.team_member_roles tmr on tmr.team_member_id = tm.id
+      join public.role_permissions rp on rp.role_id = tmr.role_id
+  ),
+  inherited as (
+    select
+      *
+    from
+      direct
+    union all
+    /* cascade org → team */
+    select
+      d.user_id,
+      t.id,
+      d.resource,
+      d.action,
+      d.scope,
+      false,
+      null
+    from
+      direct d
+      join public.groups t on d.cascade_down
+      and (
+        d.target_kind is null
+        or d.target_kind = 'team'
+      )
+      and t.kind = 'team'
+      and t.org_id = d.group_id
+  )
 select
-    user_id,
-    group_id,
-    resource,
-    action,
-    scope
+  user_id,
+  group_id,
+  resource,
+  action,
+  scope
 from
-    inherited;
+  inherited;
 
 /*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 5. INDEXES FOR OPTIMAL PERFORMANCE
@@ -284,7 +288,7 @@ create index if not exists idx_role_permissions_org_id_resource_action on public
 
 create index if not exists idx_role_permissions_team_id_resource_action on public.role_permissions (team_id, resource, action)
 where
-    team_id is not null;
+  team_id is not null;
 
 -- Indexes for org member role lookups
 create index if not exists idx_org_member_roles_org_member_id on public.org_member_roles (org_member_id);
@@ -308,6 +312,24 @@ create index if not exists idx_groups_kind on public.groups (kind);
 -- Indexes for user permissions view
 create unique index if not exists idx_user_permissions_user_group_resource_action_scope on supajump.user_permissions_view (user_id, group_id, resource, action, scope);
 
+-- Indexes for the new partial unique constraints
+create index if not exists idx_roles_org_team_scope_name_team_not_null on public.roles (org_id, team_id, scope, name)
+where
+  team_id is not null;
+
+create index if not exists idx_roles_org_scope_name_team_null on public.roles (org_id, scope, name)
+where
+  team_id is null;
+
+-- Partial indexes for role_permissions unique constraints
+create index if not exists idx_role_permissions_org_team_role_resource_action_team_not_null on public.role_permissions (org_id, team_id, role_id, resource, action)
+where
+  team_id is not null;
+
+create index if not exists idx_role_permissions_org_role_resource_action_team_null on public.role_permissions (org_id, role_id, resource, action)
+where
+  team_id is null;
+
 -- Owner bypass indexes
 create index if not exists idx_organizations_primary_owner_user_id_id on public.organizations (primary_owner_user_id, id);
 
@@ -322,6 +344,9 @@ create index if not exists idx_team_memberships_user_id on public.team_membershi
 
 create index if not exists idx_team_memberships_team_id on public.team_memberships (team_id);
 
+-- App settings index for efficient lookups
+create index if not exists idx_app_settings_key on public.app_settings (key);
+
 /*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 6. TRIGGERS AND AUTOMATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
@@ -332,6 +357,10 @@ execute function supajump.trigger_set_timestamps ();
 
 create trigger if not exists set_timestamps_org_memberships before
 update on public.org_memberships for each row
+execute function supajump.trigger_set_timestamps ();
+
+create trigger if not exists set_timestamps_app_settings before
+update on public.app_settings for each row
 execute function supajump.trigger_set_timestamps ();
 
 -- Groups sync triggers for unified view
@@ -403,6 +432,40 @@ create trigger if not exists protect_team_fields before
 update on public.teams for each row
 execute function public.protect_team_fields ();
 
+-- Validation function to ensure role/permission consistency
+create
+or replace function supajump.validate_role_permission_consistency () returns trigger language plpgsql as $$
+begin
+  -- Ensure team_id matches between role and permission
+  if new.team_id is not null then
+    if not exists (
+      select 1 from public.roles r 
+      where r.id = new.role_id 
+      and r.team_id = new.team_id
+    ) then
+      raise exception 'Role team_id must match permission team_id';
+    end if;
+  end if;
+  
+  -- Ensure org_id matches between role and permission
+  if not exists (
+    select 1 from public.roles r 
+    where r.id = new.role_id 
+    and r.org_id = new.org_id
+  ) then
+    raise exception 'Role org_id must match permission org_id';
+  end if;
+  
+  return new;
+end;
+$$;
+
+-- Add the validation trigger
+create trigger validate_role_permission_consistency before insert
+or
+update on public.role_permissions for each row
+execute function supajump.validate_role_permission_consistency ();
+
 /*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 7. PERMISSION CHECKING FUNCTIONS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
@@ -419,46 +482,180 @@ as $$
     AND  action   = _action;
 $$;
 
--- Team-level permission checking
+/*───────────────────────────────────────────────────────────────┐
+│  7.A FAST RPC HELPERS – NO HEAVY JOINS                            │
+│  These run from Supabase-JS to toggle UI (NOT inside RLS).    │
+└───────────────────────────────────────────────────────────────*/
+/*--------------------------------------------------------------
+7.A.1.  Org-level permission check
+----------------------------------------------------------------*/
 create
-or replace function public.has_team_permission (_team_id uuid, _resource text, _action text) returns boolean language sql security definer
-set
-    search_path = public as $$
+or replace function public.has_org_permission (_org_id uuid, _resource text, _action text) returns boolean language sql stable -- executes once per statement
+as $$
+  /* Lookup is a single index-backed EXISTS against the view that
+     already holds cascaded permissions. Lightning-fast (~μs). */
   select exists (
     select 1
-    from team_memberships tm
-    join team_member_roles tmr on tmr.team_member_id = tm.id
-    join role_permissions rp on rp.role_id = tmr.role_id
-    where tm.team_id = _team_id
-      and tm.user_id = auth.uid()
-      and rp.resource = _resource
-      and rp.action = _action
+    from   supajump.current_user_permissions(_resource, _action) up
+    where  up.group_id = _org_id         -- org row in groups view
   );
 $$;
 
--- Organization-level permission checking
+/*--------------------------------------------------------------
+7.A.2.  Team-level permission check
+----------------------------------------------------------------*/
 create
-or replace function public.has_org_permission (_org_id uuid, _resource text, _action text) returns boolean language sql security definer
-set
-    search_path = public as $$
+or replace function public.has_team_permission (_team_id uuid, _resource text, _action text) returns boolean language sql stable as $$
   select exists (
     select 1
-    from org_memberships om
-    join org_member_roles omr on omr.org_member_id = om.id
-    join role_permissions rp on rp.role_id = omr.role_id
-    where om.org_id = _org_id
-      and om.user_id = auth.uid()
-      and rp.resource = _resource
-      and rp.action = _action
+    from   supajump.current_user_permissions(_resource, _action) up
+    where  up.group_id = _team_id        -- team row in groups view
   );
 $$;
 
+/*--------------------------------------------------------------
+7.A.3.  Grant execute to app users
+----------------------------------------------------------------*/
 grant
-execute on function public.has_team_permission (uuid, text, text) to authenticated;
+execute on function public.has_org_permission (uuid, text, text),
+public.has_team_permission (uuid, text, text) to authenticated;
+
+/*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7B. STATIC VS DYNAMIC ROLE MANAGEMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
+/**
+ * Application settings table for global configuration
+ * This allows toggling between static and dynamic role management modes
+ */
+create table if not exists
+  public.app_settings (
+    key text primary key,
+    value jsonb not null,
+    created_at timestamp with time zone default now(),
+    updated_at timestamp with time zone default now()
+  );
+
+alter table public.app_settings enable row level security;
+
+-- Insert default setting for dynamic roles (disabled by default for security)
+insert into
+  public.app_settings (key, value)
+values
+  ('dynamic_roles_enabled', 'false'::jsonb) on conflict (key)
+do nothing;
+
+-- Function to check if dynamic roles are enabled globally
+create
+or replace function supajump.dynamic_roles_enabled () returns boolean language sql stable security definer
+set
+  search_path = public as $$
+  select coalesce(
+    (select value #>> '{}' from app_settings where key = 'dynamic_roles_enabled'),
+    'false'
+  )::boolean;
+$$;
+
+-- Public wrapper for the dynamic roles check
+create
+or replace function public.is_dynamic_roles_enabled () returns boolean language sql stable security definer
+set
+  search_path = public as $$
+  select supajump.dynamic_roles_enabled();
+$$;
 
 grant
-execute on function public.has_org_permission (uuid, text, text) to authenticated;
+execute on function public.is_dynamic_roles_enabled () to authenticated;
 
+-- Function to enable/disable dynamic roles (superuser only)
+create
+or replace function supajump.set_dynamic_roles_enabled (enabled boolean) returns void language plpgsql security definer
+set
+  search_path = public as $$
+begin
+  -- Only allow superuser to change this setting
+  if not exists (
+    select 1 
+    from pg_roles 
+    where rolname = current_user 
+    and rolsuper = true
+  ) then
+    raise exception 'PERMISSION_DENIED: Only superusers can modify dynamic roles setting. Current user: %', current_user
+      using hint = 'Contact your database administrator to enable/disable dynamic roles';
+  end if;
+  
+  insert into app_settings (key, value) 
+  values ('dynamic_roles_enabled', to_jsonb(enabled))
+  on conflict (key) do update 
+  set value = excluded.value, updated_at = now();
+  
+  raise notice 'Dynamic roles %', case when enabled then 'ENABLED' else 'DISABLED' end;
+end;
+$$;
+
+-- App settings policies (only superusers can modify)
+create policy "Superusers can manage app settings" on public.app_settings for all using (
+  exists (
+    select
+      1
+    from
+      pg_roles
+    where
+      rolname = current_user
+      and rolsuper = true
+  )
+);
+
+create policy "Authenticated users can view app settings" on public.app_settings for
+select
+  to authenticated using (true);
+
+-- Helper function to check if role management is allowed
+create
+or replace function supajump.can_manage_roles () returns boolean language sql stable security definer
+set
+  search_path = public as $$
+  select supajump.dynamic_roles_enabled();
+$$;
+
+-- Public wrapper for role management check
+create
+or replace function public.can_manage_roles () returns boolean language sql stable security definer
+set
+  search_path = public as $$
+  select supajump.can_manage_roles();
+$$;
+
+grant
+execute on function public.can_manage_roles () to authenticated;
+
+/*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STATIC VS DYNAMIC ROLE MANAGEMENT USAGE:
+
+1. STATIC MODE (Default):
+- Roles and permissions are pre-defined in the database
+- Users cannot create, modify, or delete roles
+- Only role assignments (org_member_roles, team_member_roles) can be modified
+- Suitable for applications with fixed permission structures
+
+2. DYNAMIC MODE:
+- Primary owners can create custom roles and permissions
+- Full CRUD operations available on roles and role_permissions tables
+- Suitable for applications requiring flexible permission management
+
+3. TOGGLE BETWEEN MODES:
+To enable dynamic roles (superuser only):
+SELECT supajump.set_dynamic_roles_enabled(true);
+
+To disable dynamic roles (superuser only):
+SELECT supajump.set_dynamic_roles_enabled(false);
+
+4. CHECK CURRENT MODE:
+SELECT public.is_dynamic_roles_enabled();
+
+5. APPLICATION INTEGRATION:
+Your application should check can_manage_roles() before showing
+role management UI components to users.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
 /*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 8. ROLE MANAGEMENT HELPER FUNCTIONS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
@@ -466,7 +663,7 @@ execute on function public.has_org_permission (uuid, text, text) to authenticate
 create
 or replace function supajump.get_role_id_by_name (role_name text, role_scope text default 'organization') returns uuid language sql security definer
 set
-    search_path = public as $$
+  search_path = public as $$
   select id from roles where name = role_name and scope = role_scope limit 1
 $$;
 
@@ -474,7 +671,7 @@ $$;
 create
 or replace function supajump.get_role_name_by_id (role_id uuid) returns text language sql security definer
 set
-    search_path = public as $$
+  search_path = public as $$
   select name from roles where id = role_id limit 1
 $$;
 
@@ -482,14 +679,14 @@ $$;
 create
 or replace function public.get_org_role_id (role_name text) returns uuid language sql security definer
 set
-    search_path = public as $$
+  search_path = public as $$
   select id from roles where name = role_name and scope = 'organization' limit 1
 $$;
 
 create
 or replace function public.get_team_role_id (role_name text) returns uuid language sql security definer
 set
-    search_path = public as $$
+  search_path = public as $$
   select id from roles where name = role_name and scope = 'team' limit 1
 $$;
 
@@ -506,7 +703,7 @@ execute on function public.get_team_role_id (text) to authenticated;
 create
 or replace function supajump.get_organizations_for_current_user (passed_in_role_id uuid default null) returns setof uuid language sql security definer
 set
-    search_path = public as $$
+  search_path = public as $$
   select distinct om.org_id
   from org_memberships om
   join org_member_roles omr on omr.org_member_id = om.id
@@ -518,7 +715,7 @@ $$;
 create
 or replace function public.get_organizations_for_current_user_by_role_name (role_name text) returns setof text language sql security definer
 set
-    search_path = public as $$
+  search_path = public as $$
   select distinct om.org_id
   from org_memberships om
   join org_member_roles omr on omr.org_member_id = om.id
@@ -532,7 +729,7 @@ $$;
 create
 or replace function supajump.get_teams_for_current_user (passed_in_role_id uuid default null) returns setof text language sql security definer
 set
-    search_path = public as $$
+  search_path = public as $$
   select distinct tm.team_id
   from team_memberships tm
   join team_member_roles tmr on tmr.team_member_id = tm.id
@@ -544,7 +741,7 @@ $$;
 create
 or replace function public.get_teams_for_current_user_by_role_name (role_name text) returns setof text language sql security definer
 set
-    search_path = public as $$
+  search_path = public as $$
   select distinct tm.team_id
   from team_memberships tm
   join team_member_roles tmr on tmr.team_member_id = tm.id
@@ -653,14 +850,66 @@ execute on function public.current_user_org_member_role (text) to authenticated;
 grant
 execute on function public.current_user_teams_member_role (text) to authenticated;
 
+-- Bulk role assignment for better performance
+create
+or replace function public.bulk_assign_org_roles (
+  org_id uuid,
+  user_role_pairs jsonb -- [{"user_id": "uuid", "role_name": "string"}]
+) returns void language plpgsql security definer as $$
+declare
+  pair jsonb;
+  user_uuid uuid;
+  role_uuid uuid;
+  member_id uuid;
+begin
+  -- Verify permission to manage this org
+  if not exists (
+    select 1 from public.organizations o
+    where o.id = org_id and o.primary_owner_user_id = auth.uid()
+  ) then
+    raise exception 'PERMISSION_DENIED: Only organization owners can bulk assign roles';
+  end if;
+  
+  -- Process each user-role pair
+  for pair in select * from jsonb_array_elements(user_role_pairs)
+  loop
+    user_uuid := (pair->>'user_id')::uuid;
+    role_uuid := public.get_org_role_id(pair->>'role_name');
+    
+    if role_uuid is null then
+      raise exception 'ROLE_NOT_FOUND: Role % not found', pair->>'role_name';
+    end if;
+    
+    -- Get or create membership
+    select id into member_id 
+    from public.org_memberships 
+    where org_id = bulk_assign_org_roles.org_id and user_id = user_uuid;
+    
+    if member_id is null then
+      insert into public.org_memberships (org_id, user_id)
+      values (bulk_assign_org_roles.org_id, user_uuid)
+      returning id into member_id;
+    end if;
+    
+    -- Assign role
+    insert into public.org_member_roles (role_id, org_member_id, org_id)
+    values (role_uuid, member_id, bulk_assign_org_roles.org_id)
+    on conflict (role_id, org_member_id) do nothing;
+  end loop;
+end;
+$$;
+
+grant
+execute on function public.bulk_assign_org_roles (uuid, jsonb) to authenticated;
+
 /*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 10. ORGANIZATION AND TEAM CREATION FUNCTIONS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
 -- Create organization with current user as owner
 create
 or replace function public.create_organization_and_add_current_user_as_owner (
-    name text,
-    type text default 'organization'
+  name text,
+  type text default 'organization'
 ) returns text language plpgsql security definer as $$
 declare
   new_org_id uuid;
@@ -702,7 +951,7 @@ $$;
 create
 or replace function public.create_team_and_add_current_user_as_owner (team_name text, org_id uuid) returns text language plpgsql security definer
 set
-    search_path = public as $$
+  search_path = public as $$
 declare
   new_team_id uuid;
   owner_role_id uuid;
@@ -764,148 +1013,154 @@ execute on function public.create_team_and_add_current_user_as_owner (text, text
 -- Organizations policies
 create policy "Users can view organizations they are members of" on public.organizations for
 select
-    to authenticated using (
-        id in (
-            select
-                supajump.get_organizations_for_current_user ()
-        )
-    );
+  to authenticated using (
+    id in (
+      select
+        supajump.get_organizations_for_current_user ()
+    )
+  );
 
 -- Organization memberships policies  
 create policy "Users can view other organization members" on public.org_memberships for
 select
-    to authenticated using (
-        has_org_permission (org_id, 'org_memberships', 'view')
-        or org_id in (
-            select
-                org_id
-            from
-                organizations
-            where
-                primary_owner_user_id = auth.uid ()
-        )
-    );
+  to authenticated using (
+    has_org_permission (org_id, 'org_memberships', 'view')
+    or org_id in (
+      select
+        org_id
+      from
+        organizations
+      where
+        primary_owner_user_id = auth.uid ()
+    )
+  );
 
 -- Teams policies
 create policy "Users can view teams they are members of" on public.teams for
 select
-    to authenticated using (
-        id in (
-            select
-                supajump.get_teams_for_current_user ()
-        )
-    );
+  to authenticated using (
+    id in (
+      select
+        supajump.get_teams_for_current_user ()
+    )
+  );
 
--- Roles policies (only primary owners can manage roles)
+-- Roles policies (primary owners can manage roles, but only if dynamic roles are enabled)
 create policy "Primary owners of organization can view roles" on public.roles for
 select
-    using (
-        exists (
-            select
-                1
-            from
-                organizations o
-            where
-                o.primary_owner_user_id = auth.uid ()
-                and o.id = roles.org_id
-        )
-    );
+  using (
+    exists (
+      select
+        1
+      from
+        organizations o
+      where
+        o.primary_owner_user_id = auth.uid ()
+        and o.id = roles.org_id
+    )
+  );
 
 create policy "Primary owners of organization can create roles" on public.roles for insert
 with
-    check (
-        exists (
-            select
-                1
-            from
-                organizations o
-            where
-                o.primary_owner_user_id = auth.uid ()
-                and o.id = roles.org_id
-        )
-    );
+  check (
+    supajump.dynamic_roles_enabled ()
+    and exists (
+      select
+        1
+      from
+        organizations o
+      where
+        o.primary_owner_user_id = auth.uid ()
+        and o.id = roles.org_id
+    )
+  );
 
 create policy "Primary owners of organization can update roles" on public.roles for
 update
 with
-    check (
-        exists (
-            select
-                1
-            from
-                organizations o
-            where
-                o.primary_owner_user_id = auth.uid ()
-                and o.id = roles.org_id
-        )
-    );
+  check (
+    supajump.dynamic_roles_enabled ()
+    and exists (
+      select
+        1
+      from
+        organizations o
+      where
+        o.primary_owner_user_id = auth.uid ()
+        and o.id = roles.org_id
+    )
+  );
 
 create policy "Primary owners of organization can delete roles" on public.roles for delete using (
-    exists (
-        select
-            1
-        from
-            organizations o
-        where
-            o.primary_owner_user_id = auth.uid ()
-            and o.id = roles.org_id
-    )
+  supajump.dynamic_roles_enabled ()
+  and exists (
+    select
+      1
+    from
+      organizations o
+    where
+      o.primary_owner_user_id = auth.uid ()
+      and o.id = roles.org_id
+  )
 );
 
--- Role permissions policies (only primary owners can manage)
+-- Role permissions policies (primary owners can manage, but only if dynamic roles are enabled)
 create policy "Primary owners of organization can view role permissions" on public.role_permissions for
 select
-    using (
-        exists (
-            select
-                1
-            from
-                organizations o
-            where
-                o.primary_owner_user_id = auth.uid ()
-                and o.id = role_permissions.org_id
-        )
-    );
+  using (
+    exists (
+      select
+        1
+      from
+        organizations o
+      where
+        o.primary_owner_user_id = auth.uid ()
+        and o.id = role_permissions.org_id
+    )
+  );
 
 create policy "Primary owners of organization can create role permissions" on public.role_permissions for insert
 with
-    check (
-        exists (
-            select
-                1
-            from
-                organizations o
-            where
-                o.primary_owner_user_id = auth.uid ()
-                and o.id = role_permissions.org_id
-        )
-    );
+  check (
+    supajump.dynamic_roles_enabled ()
+    and exists (
+      select
+        1
+      from
+        organizations o
+      where
+        o.primary_owner_user_id = auth.uid ()
+        and o.id = role_permissions.org_id
+    )
+  );
 
 create policy "Primary owners of organization can update role permissions" on public.role_permissions for
 update
 with
-    check (
-        exists (
-            select
-                1
-            from
-                organizations o
-            where
-                o.primary_owner_user_id = auth.uid ()
-                and o.id = role_permissions.org_id
-        )
-    );
+  check (
+    supajump.dynamic_roles_enabled ()
+    and exists (
+      select
+        1
+      from
+        organizations o
+      where
+        o.primary_owner_user_id = auth.uid ()
+        and o.id = role_permissions.org_id
+    )
+  );
 
 create policy "Primary owners of organization can delete role permissions" on public.role_permissions for delete using (
-    exists (
-        select
-            1
-        from
-            organizations o
-        where
-            o.primary_owner_user_id = auth.uid ()
-            and o.id = role_permissions.org_id
-    )
+  supajump.dynamic_roles_enabled ()
+  and exists (
+    select
+      1
+    from
+      organizations o
+    where
+      o.primary_owner_user_id = auth.uid ()
+      and o.id = role_permissions.org_id
+  )
 );
 
 /*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1017,3 +1272,59 @@ This schema provides a complete foundation for multi-tenant applications
 with sophisticated role-based access control, permission inheritance,
 and comprehensive security policies.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
+-- Performance monitoring functions
+create
+or replace function supajump.get_permission_stats () returns table (
+  total_users bigint,
+  total_orgs bigint,
+  total_teams bigint,
+  total_roles bigint,
+  total_permissions bigint,
+  avg_permissions_per_user numeric
+) language sql stable as $$
+  select 
+    (select count(*) from auth.users),
+    (select count(*) from public.organizations),
+    (select count(*) from public.teams),
+    (select count(*) from public.roles),
+    (select count(*) from public.role_permissions),
+    (select avg(cnt) from (
+      select count(*) as cnt 
+      from supajump.user_permissions_view 
+      group by user_id
+    ) t)
+$$;
+
+grant
+execute on function supajump.get_permission_stats () to authenticated;
+
+-- Configuration validation function
+create
+or replace function supajump.validate_app_setting (key text, value jsonb) returns boolean language plpgsql as $$
+begin
+  case key
+    when 'dynamic_roles_enabled' then
+      if jsonb_typeof(value) != 'boolean' then
+        raise exception 'dynamic_roles_enabled must be a boolean value';
+      end if;
+    -- Add more validations as needed
+    else
+      raise exception 'Unknown app setting: %', key;
+  end case;
+  return true;
+end;
+$$;
+
+-- Add validation trigger
+create
+or replace function supajump.validate_app_settings_trigger () returns trigger language plpgsql as $$
+begin
+  perform supajump.validate_app_setting(new.key, new.value);
+  return new;
+end;
+$$;
+
+create trigger validate_app_settings before insert
+or
+update on public.app_settings for each row
+execute function supajump.validate_app_settings_trigger ();
