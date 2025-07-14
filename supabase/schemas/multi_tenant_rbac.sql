@@ -183,13 +183,36 @@ This provides a unified view of organizations and teams for permission inheritan
 create table if not exists
   public.groups (
     id uuid primary key, -- mirrors org/team id
-    org_id uuid not null references public.organizations (id), -- parent org_id, for orgs this is the org_id itself
+    org_id uuid not null references public.organizations (id) on delete cascade, -- parent org_id, for orgs this is the org_id itself
     kind text not null check (kind in ('organization', 'team')),
     primary_owner_user_id uuid not null references auth.users (id),
     created_at timestamp with time zone default now()
   );
 
 alter table public.groups enable row level security;
+
+-- function to sync groups when orgs are deleted
+create or replace function public.trg_sync_groups_on_org_or_team_delete()
+returns trigger language plpgsql as $$
+begin
+  delete from public.groups where id = old.id;
+  return old;
+end;
+
+-- trigger to sync groups when orgs are deleted
+create trigger trg_sync_groups_on_org_or_team_delete
+after delete on public.organizations
+for each row
+execute function public.trg_sync_groups_on_org_or_team_delete();
+
+-- trigger to sync groups when teams are deleted
+create trigger trg_sync_groups_on_org_or_team_delete
+after delete on public.teams
+for each row
+execute function public.trg_sync_groups_on_org_or_team_delete();
+
+
+
 
 /*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 4. USER PERMISSIONS VIEW
@@ -269,14 +292,10 @@ from
 -- Core indexes for role lookups
 create index if not exists idx_roles_name_scope on public.roles (name, scope);
 
-create index if not exists idx_roles_scope_name on public.roles (scope, name);
-
 create index if not exists idx_roles_org_id on public.roles (org_id);
 
 -- Indexes for role permissions
 create index if not exists idx_role_permissions_role_resource_action on public.role_permissions (role_id, resource, action);
-
-create index if not exists idx_role_permissions_resource_action on public.role_permissions (resource, action);
 
 create index if not exists idx_role_permissions_org_id_resource_action on public.role_permissions (org_id, resource, action);
 
@@ -304,7 +323,6 @@ create index if not exists idx_groups_org_id_id on public.groups (org_id, id);
 create index if not exists idx_groups_kind on public.groups (kind);
 
 -- The user_permissions_view is a view so it cannot be indexed
-
 -- Indexes for the new partial unique constraints
 create unique index if not exists idx_roles_org_team_scope_name_team_not_null on public.roles (org_id, team_id, scope, name)
 where
@@ -337,7 +355,6 @@ create index if not exists idx_team_memberships_user_id on public.team_membershi
 
 create index if not exists idx_team_memberships_team_id on public.team_memberships (team_id);
 
-
 /*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 6. TRIGGERS AND AUTOMATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
@@ -349,7 +366,6 @@ execute function supajump.trigger_set_timestamps ();
 create trigger set_timestamps_org_memberships before
 update on public.org_memberships for each row
 execute function supajump.trigger_set_timestamps ();
-
 
 -- Groups sync triggers for unified view
 create
@@ -906,7 +922,7 @@ create
 or replace function public.create_organization_and_add_current_user_as_owner (
   name text,
   type text default 'organization'
-) returns text language plpgsql security definer as $$
+) returns uuid language plpgsql security definer as $$
 declare
   new_org_id uuid;
   owner_role_id uuid;
@@ -945,7 +961,7 @@ $$;
 
 -- Create team with current user as owner
 create
-or replace function public.create_team_and_add_current_user_as_owner (team_name text, org_id uuid) returns text language plpgsql security definer
+or replace function public.create_team_and_add_current_user_as_owner (team_name text, org_id uuid) returns uuid language plpgsql security definer
 set
   search_path = public as $$
 declare
