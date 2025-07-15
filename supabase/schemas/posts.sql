@@ -9,7 +9,7 @@ create table if not exists
         content text,
         post_status text default 'draft' not null,
         post_type text default 'post'::text not null,
-        org_id text not null references public.organizations (id) on delete cascade,
+        org_id uuid not null references public.organizations (id) on delete cascade,
         team_id text not null references public.teams (id) on delete cascade,
         constraint posts_team_id_slug_key unique (team_id, slug),
         constraint posts_status_check check (post_status in ('draft', 'published', 'archived'))

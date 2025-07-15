@@ -7,7 +7,7 @@ create table
   roles (
     id uuid primary key default gen_random_uuid (),
     scope text not null check (scope in ('organization', 'team')),
-    org_id text not null references organizations (id) on delete cascade,
+    org_id uuid not null references organizations (id) on delete cascade,
     team_id text references teams (id) on delete cascade,
     name text not null,
     display_name text,
@@ -27,7 +27,7 @@ create table
   role_permissions (
     id uuid primary key default gen_random_uuid (),
     role_id uuid references roles (id) on delete cascade,
-    org_id text not null references organizations (id) on delete cascade,
+    org_id uuid not null references organizations (id) on delete cascade,
     team_id text references teams (id) on delete cascade,
     scope text not null check (scope in ('all', 'own')),
     resource text not null,
@@ -46,7 +46,7 @@ create table
     id uuid primary key default gen_random_uuid (),
     role_id uuid references roles (id) on delete cascade,
     org_member_id uuid references org_memberships (id) on delete cascade,
-    org_id text not null references organizations (id) on delete cascade,
+    org_id uuid not null references organizations (id) on delete cascade,
     unique (role_id, org_member_id)
   );
 
@@ -110,7 +110,7 @@ or replace function public.create_organization_and_add_current_user_as_owner (
   type text default 'organization'
 ) returns text language plpgsql security definer as $$
 declare
-  new_org_id text;
+  new_org_id uuid;
   owner_role_id uuid;
   new_member_id uuid;
 begin
@@ -149,7 +149,7 @@ grant
 execute on function public.create_organization_and_add_current_user_as_owner (text, text) to authenticated;
 
 create
-or replace function public.current_user_org_member_role (lookup_org_id text) returns jsonb language plpgsql as $$
+or replace function public.current_user_org_member_role (lookup_org_id uuid) returns jsonb language plpgsql as $$
     declare
       user_org_member_roles jsonb;
       is_organization_primary_owner boolean;
@@ -197,7 +197,7 @@ $$;
 
 create
 or replace function public.update_org_memberships_role (
-  org_id text,
+  org_id uuid,
   user_id uuid,
   new_org_member_role_ids uuid[],
   make_primary_owner boolean
@@ -601,7 +601,7 @@ execute on function public.get_teams_for_current_user_by_role_name (text) to aut
 
 -- create a team and add the current user as the owner
 create
-or replace function public.create_team_and_add_current_user_as_owner (team_name text, org_id text) returns text language plpgsql security definer
+or replace function public.create_team_and_add_current_user_as_owner (team_name text, org_id uuid) returns text language plpgsql security definer
 set
   search_path = public as $$
   declare

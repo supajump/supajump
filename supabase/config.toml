@@ -50,8 +50,7 @@ max_client_conn = 100
 # Supports glob patterns relative to supabase directory: "./schemas/*.sql"
 schema_paths = [
     "./schemas/setup.sql",
-    "./schemas/organizations.sql",
-    "./schemas/teams.sql",
+    "./schemas/multi_tenant_rbac.sql",
     "./schemas/roles.sql",
     "./schemas/rbac.sql",
     "./schemas/profiles.sql",

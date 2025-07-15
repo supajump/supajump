@@ -20,7 +20,7 @@ create table
         -- what role should invitation accepters be given in this organization (UUID reference to roles table)
         org_member_role uuid not null references roles (id) on delete cascade,
         -- the organization the invitation is for
-        org_id text not null references organizations (id) on delete cascade,
+        org_id uuid not null references organizations (id) on delete cascade,
         -- unique token used to accept the invitation
         token text unique not null default supajump.generate_token (30),
         -- the email address of the user who created the invitation
@@ -144,7 +144,7 @@ or replace function accept_invitation (lookup_invitation_token text) returns tex
 set
     search_path = public as $$
 declare
-    v_lookup_org_id text;
+    v_lookup_org_id uuid;
     v_new_member_role_id uuid;
     v_team_roles jsonb;
     v_team jsonb;
@@ -240,7 +240,7 @@ execute on function lookup_invitation (text) to authenticated;
 -- update create_org_invite to add team_roles
 create
 or replace function create_org_invite (
-    input_org_id text,
+    input_org_id uuid,
     org_member_role_id uuid,
     invitee_email text,
     invitation_type text,

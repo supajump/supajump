@@ -116,7 +116,7 @@ create table if not exists
     name text not null,
     display_name text,
     description text,
-    check (scope in ('organization', 'team'))
+    constraint roles_scope_check check (scope in ('organization', 'team'))
   );
 
 alter table public.roles enable row level security;
@@ -140,7 +140,7 @@ create table if not exists
     action text not null,
     cascade_down boolean default false,
     target_kind text,
-    check (scope in ('all', 'own')),
+    constraint role_permissions_scope_check check (scope in ('all', 'own')),
     constraint role_permissions_org_team_role_resource_action_unique unique (org_id, team_id, role_id, resource, action),
     constraint role_permissions_org_role_resource_action_unique unique (org_id, role_id, resource, action)
   );
@@ -192,27 +192,34 @@ create table if not exists
 alter table public.groups enable row level security;
 
 -- function to sync groups when orgs are deleted
-create or replace function public.trg_sync_groups_on_org_or_team_delete()
-returns trigger language plpgsql as $$
+create
+or replace function public.trg_sync_groups_on_org_delete () returns trigger language plpgsql as $$
 begin
   delete from public.groups where id = old.id;
-  return old;
+  return old; 
 end;
 
 -- trigger to sync groups when orgs are deleted
-create trigger trg_sync_groups_on_org_or_team_delete
+create trigger trg_sync_groups_on_org_delete
 after delete on public.organizations
 for each row
-execute function public.trg_sync_groups_on_org_or_team_delete();
+execute function public.trg_sync_groups_on_org_delete();
+
+create or replace function public.trg_sync_groups_on_team_delete()
+returns trigger language plpgsql as $$
+begin
+delete from public.groups
+where
+  id = old.id;
+
+return old;
+
+end;
 
 -- trigger to sync groups when teams are deleted
-create trigger trg_sync_groups_on_org_or_team_delete
-after delete on public.teams
-for each row
-execute function public.trg_sync_groups_on_org_or_team_delete();
-
-
-
+create trigger trg_sync_groups_on_team_delete
+after delete on public.teams for each row
+execute function public.trg_sync_groups_on_team_delete ();
 
 /*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 4. USER PERMISSIONS VIEW
@@ -725,7 +732,7 @@ $$;
 
 -- Get organizations for current user by role name
 create
-or replace function public.get_organizations_for_current_user_by_role_name (role_name text) returns setof text language sql security definer
+or replace function supajump.get_organizations_for_current_user_by_role_name (role_name text) returns setof text language sql security definer
 set
   search_path = public as $$
   select distinct om.org_id
@@ -751,7 +758,7 @@ $$;
 
 -- Get teams for current user by role name
 create
-or replace function public.get_teams_for_current_user_by_role_name (role_name text) returns setof text language sql security definer
+or replace function supajump.get_teams_for_current_user_by_role_name (role_name text) returns setof text language sql security definer
 set
   search_path = public as $$
   select distinct tm.team_id
@@ -771,7 +778,7 @@ execute on function public.get_teams_for_current_user_by_role_name (text) to aut
 
 -- Get current user's role info for an organization
 create
-or replace function public.current_user_org_member_role (lookup_org_id uuid) returns jsonb language plpgsql as $$
+or replace function supajump.current_user_org_member_role (lookup_org_id uuid) returns jsonb language plpgsql as $$
 declare
   user_org_member_roles jsonb;
   is_organization_primary_owner boolean;
@@ -817,7 +824,7 @@ $$;
 
 -- Get current user's role info for a team
 create
-or replace function public.current_user_teams_member_role (lookup_team_id uuid) returns jsonb language plpgsql as $$
+or replace function supajump.current_user_teams_member_role (lookup_team_id uuid) returns jsonb language plpgsql as $$
 declare
   user_teams_member_roles jsonb;
   is_team_primary_owner boolean;
@@ -864,7 +871,7 @@ execute on function public.current_user_teams_member_role (uuid) to authenticate
 
 -- Bulk role assignment for better performance
 create
-or replace function public.bulk_assign_org_roles (
+or replace function supajump.bulk_assign_org_roles (
   org_id uuid,
   user_role_pairs jsonb -- [{"user_id": "uuid", "role_name": "string"}]
 ) returns void language plpgsql security definer as $$

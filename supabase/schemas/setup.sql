@@ -213,7 +213,7 @@ or replace function public.slugify (text) returns text language sql as $_$
 $_$;
 
 create
-or replace function public.get_org_member_count (org_id text) returns integer language plpgsql security definer as $$
+or replace function public.get_org_member_count (org_id uuid) returns integer language plpgsql security definer as $$
 declare
     member_count integer;
 begin
@@ -227,7 +227,7 @@ end;
 $$;
 
 create
-or replace function public.get_org_member_quota (org_id text) returns integer language plpgsql security definer as $$
+or replace function public.get_org_member_quota (org_id uuid) returns integer language plpgsql security definer as $$
 declare
     quota integer := 10; -- default quota
 begin
