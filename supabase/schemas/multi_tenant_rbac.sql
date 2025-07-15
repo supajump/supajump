@@ -678,6 +678,16 @@ role management UI components to users.
 /*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 8. ROLE MANAGEMENT HELPER FUNCTIONS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
+create
+or replace function supajump.is_set (field_name text) returns boolean language plpgsql as $$
+declare
+  result boolean;
+begin
+  execute format('select %I from supajump.config limit 1', field_name) into result;
+  return result;
+end;
+$$;
+
 -- Get role ID by name and scope
 create
 or replace function supajump.get_role_id_by_name (role_name text, role_scope text default 'organization') returns uuid language sql security definer
@@ -730,9 +740,42 @@ set
     and (omr.role_id = passed_in_role_id or passed_in_role_id is null)
 $$;
 
+-- Get organizations for current user matching any of the provided role IDs
+create
+or replace function supajump.get_organizations_for_current_user_matching_roles (
+  passed_in_role_ids uuid[] default null
+) returns setof uuid language sql security definer
+set
+  search_path = public as $$
+  select distinct om.org_id
+  from org_memberships om
+  join org_member_roles omr on omr.org_member_id = om.id
+  where om.user_id = auth.uid()
+    and (
+      omr.role_id = ANY(passed_in_role_ids)
+      or passed_in_role_ids is null
+    )
+$$;
+
+grant
+execute on function supajump.get_organizations_for_current_user_matching_roles (uuid[]) to authenticated;
+
 -- Get organizations for current user by role name
 create
 or replace function supajump.get_organizations_for_current_user_by_role_name (role_name text) returns setof text language sql security definer
+set
+  search_path = public as $$
+  select distinct om.org_id
+  from org_memberships om
+  join org_member_roles omr on omr.org_member_id = om.id
+  join roles r on r.id = omr.role_id
+  where om.user_id = auth.uid()
+    and r.scope = 'organization'
+    and r.name = role_name
+$$;
+
+create
+or replace function public.get_organizations_for_current_user_by_role_name (role_name text) returns setof uuid language sql security definer
 set
   search_path = public as $$
   select distinct om.org_id
@@ -756,9 +799,41 @@ set
     and (tmr.role_id = passed_in_role_id or passed_in_role_id is null)
 $$;
 
+create
+or replace function supajump.get_teams_for_current_user_matching_roles (
+  passed_in_role_ids uuid[] default null
+) returns setof text language sql security definer
+set
+  search_path = public as $$
+  select distinct tm.team_id
+  from team_memberships tm
+  join team_member_roles tmr on tmr.team_member_id = tm.id
+  where tm.user_id = auth.uid()
+    and (
+      tmr.role_id = ANY(passed_in_role_ids)
+      or passed_in_role_ids is null
+    )
+$$;
+
+grant
+execute on function supajump.get_teams_for_current_user_matching_roles (uuid[]) to authenticated;
+
 -- Get teams for current user by role name
 create
 or replace function supajump.get_teams_for_current_user_by_role_name (role_name text) returns setof text language sql security definer
+set
+  search_path = public as $$
+  select distinct tm.team_id
+  from team_memberships tm
+  join team_member_roles tmr on tmr.team_member_id = tm.id
+  join roles r on r.id = tmr.role_id
+  where tm.user_id = auth.uid()
+    and r.scope = 'team'
+    and r.name = role_name
+$$;
+
+create
+or replace function public.get_teams_for_current_user_by_role_name (role_name text) returns setof text language sql security definer
 set
   search_path = public as $$
   select distinct tm.team_id
@@ -868,6 +943,174 @@ execute on function public.current_user_org_member_role (uuid) to authenticated;
 
 grant
 execute on function public.current_user_teams_member_role (uuid) to authenticated;
+
+create
+or replace function public.update_org_memberships_role (
+  org_id uuid,
+  user_id uuid,
+  new_org_member_role_ids uuid[],
+  make_primary_owner boolean
+) returns void language plpgsql security definer
+set
+  search_path to 'public' as $$
+  declare
+    is_organization_owner boolean;
+    is_organization_primary_owner boolean;
+    changing_primary_owner boolean;
+    owner_role_id uuid;
+    member_id uuid;
+    role_id uuid;
+  begin
+    -- Get owner role ID for validation
+    owner_role_id := supajump.get_role_id_by_name('owner', 'organization');
+
+    if owner_role_id is null then
+      raise exception 'Owner role not found in roles table';
+    end if;
+
+    -- Validate that all new roles exist and are organization roles
+    foreach role_id in array new_org_member_role_ids loop
+      if not exists (select 1 from roles where id = role_id and scope = 'organization') then
+        raise exception 'Invalid organization role ID: %', role_id;
+      end if;
+    end loop;
+
+    -- check if the user is an owner, and if they are, allow them to update the role
+    select exists(
+      select 1 from public.org_memberships om
+      join public.org_member_roles omr on omr.org_member_id = om.id
+      where om.user_id = auth.uid()
+        and om.org_id = update_org_memberships_role.org_id
+        and omr.role_id = owner_role_id
+    ) into is_organization_owner;
+
+    if not is_organization_owner then
+      raise exception 'you must be an owner of the organization to update a users role';
+    end if;
+
+    -- check if the user being changed is the primary owner, if so its not allowed
+    select primary_owner_user_id = auth.uid(), primary_owner_user_id = update_org_memberships_role.user_id
+      into is_organization_primary_owner, changing_primary_owner
+      from public.organizations where id = update_org_memberships_role.org_id;
+
+    if changing_primary_owner = true and is_organization_primary_owner = false then
+      raise exception 'you must be the primary owner of the organization to change the primary owner';
+    end if;
+
+    -- Get the membership ID
+    select om.id into member_id
+    from public.org_memberships om
+    where om.org_id = update_org_memberships_role.org_id
+      and om.user_id = update_org_memberships_role.user_id;
+
+    if member_id is null then
+      raise exception 'User is not a member of this organization';
+    end if;
+
+    -- Delete existing role assignments
+    delete from public.org_member_roles where org_member_id = member_id;
+
+    -- Insert new role assignments
+    foreach role_id in array new_org_member_role_ids loop
+      insert into public.org_member_roles (role_id, org_member_id, org_id)
+      values (role_id, member_id, update_org_memberships_role.org_id);
+    end loop;
+
+    if make_primary_owner = true then
+      -- first we see if the current user is the owner, only they can do this
+      if is_organization_primary_owner = false then
+        raise exception 'you must be the primary owner of the organization to change the primary owner';
+      end if;
+
+      update public.organizations set primary_owner_user_id = update_org_memberships_role.user_id where id = update_org_memberships_role.org_id;
+    end if;
+  end;
+$$;
+
+create
+or replace function public.update_team_memberships_role (
+  team_id uuid,
+  user_id uuid,
+  new_teams_member_role_ids uuid[],
+  make_primary_owner boolean
+) returns void security definer
+set
+  search_path = public language plpgsql as $$
+  declare
+    is_team_owner boolean;
+    is_team_primary_owner boolean;
+    changing_primary_owner boolean;
+    owner_role_id uuid;
+    member_id uuid;
+    role_id uuid;
+  begin
+    -- Get owner role ID for validation
+    owner_role_id := supajump.get_role_id_by_name('owner', 'team');
+
+    if owner_role_id is null then
+      raise exception 'Team owner role not found in roles table';
+    end if;
+
+    -- Validate that all new roles exist and are team roles
+    foreach role_id in array new_teams_member_role_ids loop
+      if not exists (select 1 from roles where id = role_id and scope = 'team') then
+        raise exception 'Invalid team role ID: %', role_id;
+      end if;
+    end loop;
+
+    -- check if the user is an owner, and if they are, allow them to update the role
+    select exists(
+      select 1 from public.team_memberships tm
+      join public.team_member_roles tmr on tmr.team_member_id = tm.id
+      where tm.user_id = auth.uid()
+        and tm.team_id = update_team_memberships_role.team_id
+        and tmr.role_id = owner_role_id
+    ) into is_team_owner;
+
+    if not is_team_owner then
+      raise exception 'you must be an owner of the team to update a users role';
+    end if;
+
+    -- check if the user being changed is the primary owner, if so its not allowed
+    select primary_owner_user_id = auth.uid(), primary_owner_user_id = update_team_memberships_role.user_id
+      into is_team_primary_owner, changing_primary_owner from public.teams where id = update_team_memberships_role.team_id;
+
+    if changing_primary_owner = true and is_team_primary_owner = false then
+      raise exception 'you must be the primary owner of the team to change the primary owner';
+    end if;
+
+    -- Get the membership ID
+    select tm.id into member_id
+    from public.team_memberships tm
+    where tm.team_id = update_team_memberships_role.team_id
+      and tm.user_id = update_team_memberships_role.user_id;
+
+    if member_id is null then
+      raise exception 'User is not a member of this team';
+    end if;
+
+    -- Delete existing role assignments
+    delete from public.team_member_roles where team_member_id = member_id;
+
+    -- Insert new role assignments
+    foreach role_id in array new_teams_member_role_ids loop
+      insert into public.team_member_roles (role_id, team_member_id, team_id)
+      values (role_id, member_id, update_team_memberships_role.team_id);
+    end loop;
+
+    if make_primary_owner = true then
+      -- first we see if the current user is the owner, only they can do this
+      if is_team_primary_owner = false then
+        raise exception 'you must be the primary owner of the team to change the primary owner';
+      end if;
+
+  update public.teams set primary_owner_user_id = update_team_memberships_role.user_id where id = update_team_memberships_role.team_id;
+    end if;
+  end;
+$$;
+
+grant
+execute on function public.update_team_memberships_role (uuid, uuid, uuid[], boolean) to authenticated;
 
 -- Bulk role assignment for better performance
 create
