@@ -51,8 +51,6 @@ max_client_conn = 100
 schema_paths = [
     "./schemas/setup.sql",
     "./schemas/multi_tenant_rbac.sql",
-    "./schemas/roles.sql",
-    "./schemas/rbac.sql",
     "./schemas/profiles.sql",
     "./schemas/billing.sql",
     "./schemas/invitations.sql",
