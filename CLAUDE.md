@@ -6,16 +6,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Supajump is a multi-tenant SaaS starter kit built with Next.js 15 and Supabase. It implements a hierarchical structure: Organizations → Teams → Users, with role-based access control and Row Level Security.
 
+This is a Turborepo monorepo with the following structure:
+- `/apps/app` - The main Next.js application
+- `/packages/*` - Shared packages (to be added as needed)
+
 ## Essential Commands
 
 ```bash
-# Development
-pnpm dev           # Start Next.js dev server with Turbopack
+# Development (from root)
+pnpm dev           # Start all apps in dev mode
+pnpm dev --filter @supajump/app  # Start only the Next.js app
 supabase start     # Start local Supabase instance (required for development)
 
-# Building and Testing
-pnpm build         # Build for production
-pnpm lint          # Run ESLint (ALWAYS run before committing)
+# Building and Testing (from root)
+pnpm build         # Build all apps and packages
+pnpm lint          # Run ESLint across the monorepo (ALWAYS run before committing)
 
 # Database Management
 pnpm db:gen:types  # Generate TypeScript types from Supabase schema
@@ -26,7 +31,7 @@ supabase db reset  # Reset and reseed local database
 ## Architecture & Code Organization
 
 ### Data Access Pattern
-All database queries are centralized in `/src/queries/index.ts` and exposed via the `api` object:
+All database queries are centralized in `/apps/app/src/queries/index.ts` and exposed via the `api` object:
 
 ```typescript
 import { api } from "@/queries"
@@ -40,7 +45,7 @@ const { data } = useQuery(api.posts.findMany({ teamId }))
 ```
 
 ### Feature-Based Organization
-New features should be added to `/src/features/[feature-name]/`:
+New features should be added to `/apps/app/src/features/[feature-name]/`:
 - Components specific to the feature
 - Hooks related to the feature
 - Types for the feature
@@ -53,7 +58,7 @@ New features should be added to `/src/features/[feature-name]/`:
 
 ### Key Patterns
 1. **Server Components First**: Use React Server Components by default, client components only when needed
-2. **Type Safety**: Database types are auto-generated in `src/lib/database.types.ts`
+2. **Type Safety**: Database types are auto-generated in `apps/app/src/lib/database.types.ts`
 3. **RLS Enforcement**: All database access goes through Supabase RLS policies
 4. **Form Handling**: Use react-hook-form with zod validation
 5. **Error Handling**: Server actions return `{ error: string }` on failure
@@ -69,7 +74,7 @@ New features should be added to `/src/features/[feature-name]/`:
    - Start Supabase: `supabase start`
    - Apply migration: `supabase migration up`
 4. After schema changes, run `pnpm db:gen:types` to update TypeScript types
-5. Use the existing UI components in `/src/components/ui/` (Radix UI + Tailwind)
+5. Use the existing UI components in `/apps/app/src/components/ui/` (Radix UI + Tailwind)
 
 ## Important Conventions
 
