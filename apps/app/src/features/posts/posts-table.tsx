@@ -1,6 +1,6 @@
 'use client';
 
-import { usePosts } from '@/hooks/use-posts';
+import { usePosts } from './hooks/use-posts';
 import { DataTable } from '@/components/data-table/data-table';
 import { columns, type Post } from '@/features/posts/columns';
 

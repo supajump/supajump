@@ -1,4 +1,4 @@
-import { posts } from './posts'
+import { posts } from '@/features/posts/queries/posts'
 import { organizations } from './organizations'
 import { teams } from './teams'
 import { members } from './members'
