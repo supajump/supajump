@@ -116,7 +116,11 @@ create table if not exists
     name text not null,
     display_name text,
     description text,
-    constraint roles_scope_check check (scope in ('organization', 'team'))
+    constraint roles_scope_check check (scope in ('organization', 'team')),
+    constraint roles_scope_team_check check (
+      (scope = 'organization' and team_id is null)
+      or (scope = 'team' and team_id is not null)
+    )
   );
 
 alter table public.roles enable row level security;
@@ -412,7 +416,7 @@ execute procedure public.trg_sync_team ();
 create
 or replace function public.protect_organization_fields () returns trigger language plpgsql as $$
 begin
-  if current_user in ('authenticated', 'anon') then
+  if current_role = 'authenticated' then
     -- these are protected fields that users are not allowed to update themselves
     -- platform admins should be very careful about updating them as well.
     if new.id <> old.id or new.primary_owner_user_id <> old.primary_owner_user_id then
@@ -429,7 +433,7 @@ execute function public.protect_organization_fields ();
 create
 or replace function public.protect_team_fields () returns trigger language plpgsql as $$
 begin
-  if current_user in ('authenticated', 'anon') then
+  if current_role = 'authenticated' then
     -- these are protected fields that users are not allowed to update themselves
     -- platform admins should be very careful about updating them as well.
     if new.id <> old.id or new.primary_owner_user_id <> old.primary_owner_user_id then
@@ -1124,6 +1128,7 @@ declare
   role_uuid uuid;
   member_id uuid;
 begin
+  perform pg_advisory_xact_lock(hashtext(org_id::text));
   -- Verify permission to manage this org
   if not exists (
     select 1 from public.organizations o
