@@ -60,16 +60,19 @@ end;
 $$;
 
 create
-or replace function public.is_valid_org_id (input_text text) returns boolean language plpgsql security definer as $_$
+or replace function public.is_valid_slug (input_text text) returns boolean language plpgsql security definer as $_$
 begin
   return input_text ~ '^[0-9a-z]{16}$';
 end;
 $_$;
 
 create
-or replace function public.is_valid_team_id (input_text text) returns boolean language plpgsql security definer as $_$
+or replace function public.is_valid_org_name (input_text text) returns boolean language plpgsql security definer as $_$
 begin
-  return input_text ~ '^[0-9a-z]{16}$';
+  return input_text is not null
+    and length(input_text) >= 1
+    and length(input_text) <= 60
+    and input_text ~ '^[a-zA-Z0-9\s_-]+$';
 end;
 $_$;
 
@@ -146,7 +149,7 @@ begin
     -------------------------------------------------------------------------
     -- 2) If NEW.rank_order is already set (non-null & non-empty), just return
     -------------------------------------------------------------------------
-    if coalesce(new.rank_order, '') <> '' then
+    if coalesce(NEW.rank_order, '') <> '' then
         return new;
     end if;
 
@@ -196,10 +199,10 @@ begin
         using grouping_val;
 
         if coalesce(last_rank, '') = '' then
-            new.rank_order := 'a0';
+            NEW.rank_order := 'a0';
         else
             -- for a "fractional" ordering approach, increment the last rank
-            new.rank_order := increment_rank_order(last_rank);
+            NEW.rank_order := increment_rank_order(last_rank);
         end if;
     end if;
 

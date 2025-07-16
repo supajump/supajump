@@ -2,13 +2,6 @@ create extension if not exists pg_jsonschema
 with
     schema extensions;
 
-create
-or replace function is_valid_team_id (input_text text) returns boolean as $$
-BEGIN
-  RETURN input_text ~ '^[0-9a-z]{5,16}$';
-END;
-$$ language plpgsql security definer;
-
 /**
  * Invitations are sent to users to join a organization
  * They pre-define the role the user should have once they join
@@ -20,7 +13,7 @@ create table
         -- what role should invitation accepters be given in this organization (UUID reference to roles table)
         org_member_role uuid not null references roles (id) on delete cascade,
         -- the organization the invitation is for
-        org_id text not null references organizations (id) on delete cascade,
+        org_id uuid not null references organizations (id) on delete cascade,
         -- unique token used to accept the invitation
         token text unique not null default supajump.generate_token (30),
         -- the email address of the user who created the invitation
@@ -144,7 +137,7 @@ or replace function accept_invitation (lookup_invitation_token text) returns tex
 set
     search_path = public as $$
 declare
-    v_lookup_org_id text;
+    v_lookup_org_id uuid;
     v_new_member_role_id uuid;
     v_team_roles jsonb;
     v_team jsonb;
@@ -240,7 +233,7 @@ execute on function lookup_invitation (text) to authenticated;
 -- update create_org_invite to add team_roles
 create
 or replace function create_org_invite (
-    input_org_id text,
+    input_org_id uuid,
     org_member_role_id uuid,
     invitee_email text,
     invitation_type text,
@@ -254,15 +247,11 @@ DECLARE
     invitee_already_member BOOLEAN;
     result TEXT;
     team jsonb;
-    team_id text;
+    team_id uuid;
     team_count int;
     owner_role_id uuid;
     admin_role_id uuid;
 BEGIN
-    -- Input validation for input_org_id
-    IF is_valid_org_id(input_org_id) IS NOT TRUE THEN
-        RAISE EXCEPTION 'org_id is not valid. Please provide a valid org_id.';
-    END IF;
 
     -- Check if org_id exists in the database
     IF NOT EXISTS (SELECT 1 FROM organizations WHERE id = input_org_id) THEN
@@ -387,7 +376,7 @@ END;
 $$ language plpgsql security definer;
 
 grant
-execute on function create_org_invite (text, uuid, text, text, jsonb) to authenticated;
+execute on function create_org_invite (uuid, uuid, text, text, jsonb) to authenticated;
 
 create
 or replace function public.lookup_active_invitations () returns table (

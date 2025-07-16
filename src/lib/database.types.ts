@@ -34,6 +34,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          created_at: string | null
+          key: string
+          updated_at: string | null
+          value: Json
+        }
+        Insert: {
+          created_at?: string | null
+          key: string
+          updated_at?: string | null
+          value: Json
+        }
+        Update: {
+          created_at?: string | null
+          key?: string
+          updated_at?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       billing_customers: {
         Row: {
           active: boolean | null
@@ -233,6 +254,38 @@ export type Database = {
           },
         ]
       }
+      groups: {
+        Row: {
+          created_at: string | null
+          id: string
+          kind: string
+          org_id: string
+          primary_owner_user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id: string
+          kind: string
+          org_id: string
+          primary_owner_user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          kind?: string
+          org_id?: string
+          primary_owner_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "groups_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invitations: {
         Row: {
           created_at: string | null
@@ -408,6 +461,7 @@ export type Database = {
           created_at: string | null
           id: string
           org_id: string
+          owner_id: string | null
           post_status: string
           post_type: string
           slug: string | null
@@ -420,6 +474,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           org_id: string
+          owner_id?: string | null
           post_status?: string
           post_type?: string
           slug?: string | null
@@ -432,6 +487,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           org_id?: string
+          owner_id?: string | null
           post_status?: string
           post_type?: string
           slug?: string | null
@@ -486,26 +542,35 @@ export type Database = {
       role_permissions: {
         Row: {
           action: string
+          cascade_down: boolean | null
           id: string
           org_id: string
           resource: string
           role_id: string | null
+          scope: string
+          target_kind: string | null
           team_id: string | null
         }
         Insert: {
           action: string
+          cascade_down?: boolean | null
           id?: string
           org_id: string
           resource: string
           role_id?: string | null
+          scope?: string
+          target_kind?: string | null
           team_id?: string | null
         }
         Update: {
           action?: string
+          cascade_down?: boolean | null
           id?: string
           org_id?: string
           resource?: string
           role_id?: string | null
+          scope?: string
+          target_kind?: string | null
           team_id?: string | null
         }
         Relationships: [
@@ -659,6 +724,7 @@ export type Database = {
           name: string
           org_id: string
           primary_owner_user_id: string
+          slug: string | null
           updated_at: string | null
         }
         Insert: {
@@ -667,6 +733,7 @@ export type Database = {
           name: string
           org_id: string
           primary_owner_user_id: string
+          slug?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -675,6 +742,7 @@ export type Database = {
           name?: string
           org_id?: string
           primary_owner_user_id?: string
+          slug?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -696,6 +764,14 @@ export type Database = {
         Args: { lookup_invitation_token: string }
         Returns: string
       }
+      bulk_assign_org_roles: {
+        Args: { org_id: string; user_role_pairs: Json }
+        Returns: undefined
+      }
+      can_manage_roles: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       create_org_invite: {
         Args: {
           input_org_id: string
@@ -706,16 +782,12 @@ export type Database = {
         }
         Returns: string
       }
-      create_organization: {
-        Args: { name: string; type?: string }
-        Returns: string
-      }
       create_organization_and_add_current_user_as_owner: {
         Args: { name: string; type?: string }
         Returns: string
       }
       create_team_and_add_current_user_as_owner: {
-        Args: { team_name: string; org_id: string }
+        Args: { team_name: string; input_org_id: string }
         Returns: string
       }
       current_user_org_member_role: {
@@ -742,16 +814,32 @@ export type Database = {
         Args: { lookup_org_id: string }
         Returns: Json
       }
+      get_organizations_for_current_user: {
+        Args: { passed_in_role_id?: string }
+        Returns: string[]
+      }
       get_organizations_for_current_user_by_role_name: {
         Args: { role_name: string }
+        Returns: string[]
+      }
+      get_organizations_for_current_user_matching_roles: {
+        Args: { passed_in_role_ids?: string[] }
         Returns: string[]
       }
       get_team_role_id: {
         Args: { role_name: string }
         Returns: string
       }
+      get_teams_for_current_user: {
+        Args: { passed_in_role_id?: string }
+        Returns: string[]
+      }
       get_teams_for_current_user_by_role_name: {
         Args: { role_name: string }
+        Returns: string[]
+      }
+      get_teams_for_current_user_matching_roles: {
+        Args: { passed_in_role_ids?: string[] }
         Returns: string[]
       }
       has_org_permission: {
@@ -766,11 +854,15 @@ export type Database = {
         Args: { rank_val: string }
         Returns: string
       }
-      is_valid_org_id: {
+      is_dynamic_roles_enabled: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_valid_org_name: {
         Args: { input_text: string }
         Returns: boolean
       }
-      is_valid_team_id: {
+      is_valid_slug: {
         Args: { input_text: string }
         Returns: boolean
       }

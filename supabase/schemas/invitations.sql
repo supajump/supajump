@@ -2,13 +2,6 @@ create extension if not exists pg_jsonschema
 with
     schema extensions;
 
-create
-or replace function is_valid_team_id (input_text text) returns boolean as $$
-BEGIN
-  RETURN input_text ~ '^[0-9a-z]{5,16}$';
-END;
-$$ language plpgsql security definer;
-
 /**
  * Invitations are sent to users to join a organization
  * They pre-define the role the user should have once they join
@@ -254,15 +247,11 @@ DECLARE
     invitee_already_member BOOLEAN;
     result TEXT;
     team jsonb;
-    team_id text;
+    team_id uuid;
     team_count int;
     owner_role_id uuid;
     admin_role_id uuid;
 BEGIN
-    -- Input validation for input_org_id
-    IF is_valid_org_id(input_org_id) IS NOT TRUE THEN
-        RAISE EXCEPTION 'org_id is not valid. Please provide a valid org_id.';
-    END IF;
 
     -- Check if org_id exists in the database
     IF NOT EXISTS (SELECT 1 FROM organizations WHERE id = input_org_id) THEN
@@ -387,7 +376,7 @@ END;
 $$ language plpgsql security definer;
 
 grant
-execute on function create_org_invite (text, uuid, text, text, jsonb) to authenticated;
+execute on function create_org_invite (uuid, uuid, text, text, jsonb) to authenticated;
 
 create
 or replace function public.lookup_active_invitations () returns table (

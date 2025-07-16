@@ -79,11 +79,11 @@ begin
     -- first we setup the user profile
     -- TODO: see if we can get the user's name from the auth.users table once we learn how oauth works
     -- TODO: If no name is provided, use the first part of the email address
-    if new.email IS NOT NULL then
-        generated_user_name := split_part(new.email, '@', 1);
+    if NEW.email IS NOT NULL then
+        generated_user_name := split_part(NEW.email, '@', 1);
     end if;
 
-    insert into public.profiles (id, user_name) values (new.id, generated_user_name);
+    insert into public.profiles (id, user_name) values (NEW.id, generated_user_name);
 
     -- only create the first organization if private organizations is enabled
     if supajump.is_set('enable_personal_organizations') = true then
@@ -119,3 +119,48 @@ $$;
 create trigger on_auth_user_created
 after insert on auth.users for each row
 execute procedure supajump.run_new_user_setup ();
+
+-- create
+-- or replace function supajump.run_new_user_setup () returns trigger language plpgsql security definer
+-- set
+--     search_path to 'public' as $$
+-- declare
+--   first_organization_name  text;
+--   first_org_id    text;
+--   generated_user_name text;
+--   default_organization_name text := 'Default';
+--   owner_role_id uuid;
+-- begin
+--   -- first we setup the user profile
+--   -- TODO: see if we can get the user's name from the auth.users table once we learn how oauth works
+--   -- TODO: If no name is provided, use the first part of the email address
+--   if NEW.email IS NOT NULL then
+--     generated_user_name := split_part(NEW.email, '@', 1);
+--   end if;
+--     -- Check if generated_user_name is NULL or empty and assign default_organization_name if it is
+--   if generated_user_name IS NULL or generated_user_name = '' then
+--     generated_user_name := default_organization_name;
+--   end if;
+--   -- Get the owner role ID using helper function (internal use only)
+--   owner_role_id := supajump.get_role_id_by_name('owner', 'organization');
+--   if owner_role_id is null then
+--     raise exception 'Owner role not found in roles table';
+--   end if;
+--   insert into public.profiles (id, user_name) values (NEW.id, generated_user_name);
+--   -- only create the first organization if private organizations is enabled
+--   -- if supajump.is_set('enable_personal_organizations') = true then
+--   -- create the new users's personal organization
+--   insert into public.organizations (primary_owner_user_id, type, name)
+--   values (NEW.id, 'organization', generated_user_name)
+--   returning id into first_org_id;
+--   -- add them to the org_memberships table so they can act on it
+--   insert into public.org_memberships (org_id, user_id, org_member_role)
+--   values (first_org_id, NEW.id, owner_role_id);
+--   -- end if;
+--   return NEW;
+-- end;
+-- $$;
+-- revoke all on function supajump.run_new_user_setup ()
+-- from
+--     public;
+-- grant all on function supajump.run_new_user_setup () to authenticated;

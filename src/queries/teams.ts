@@ -39,7 +39,7 @@ async function createTeam(orgId: string, teamName: string) {
   const supabase = createBrowserClient()
   const { data, error } = await supabase.rpc(
     'create_team_and_add_current_user_as_owner',
-    { team_name: teamName, org_id: orgId }
+    { team_name: teamName, input_org_id: orgId }
   )
   if (error || !data) {
     throw new Error(error?.message ?? 'Failed to create team')

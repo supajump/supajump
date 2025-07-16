@@ -1,322 +1,310 @@
--- seed initial user
-insert into
-    auth.users (id, email)
-values
-    ('00000000-0000-0000-0000-000000000000', 'test@test.com');
-
--- seed initial organization and team
-insert into
-    organizations (
-        id,
-        name,
-        type,
-        primary_owner_user_id
-    )
-values
-    (
-        '00000000-0000-0000-0000-000000000000',
-        'My Organization',
-        'organization',
-        '00000000-0000-0000-0000-000000000000'
-    );
-
-insert into
-    teams (id, name, org_id, primary_owner_user_id)
-values
-    (
-        '00000000-0000-0000-0000-000000000000',
-        'My Team',
-        '00000000-0000-0000-0000-000000000000',
-        '00000000-0000-0000-0000-000000000000'
-    );
-
--- Seed basic roles for organizations and teams
--- Insert organization-scoped roles
-insert into
-    roles (scope, name, display_name, description, org_id, team_id)
-values
-    (
-        'organization',
-        'owner',
-        'Owner',
-        'Full access to the organization including billing and member management',
-        '00000000-0000-0000-0000-000000000000',
-        null
-    ),
-    (
-        'organization',
-        'admin',
-        'Admin',
-        'Administrative access to the organization excluding billing',
-        '00000000-0000-0000-0000-000000000000',
-        null
-    ),
-    (
-        'organization',
-        'member',
-        'Member',
-        'Basic member access to the organization',
-        '00000000-0000-0000-0000-000000000000',
-        null
-    ) on conflict (org_id, scope, name)
-do nothing;
-
--- Insert team-scoped roles
-insert into
-    roles (scope, name, display_name, description, org_id, team_id)
-values
-    (
-        'team',
-        'owner',
-        'Team Owner',
-        'Full access to the team including member management',
-        '00000000-0000-0000-0000-000000000000',
-        '00000000-0000-0000-0000-000000000000'
-    ),
-    (
-        'team',
-        'admin',
-        'Team Admin',
-        'Administrative access to the team',
-        '00000000-0000-0000-0000-000000000000',
-        '00000000-0000-0000-0000-000000000000'
-    ),
-    (
-        'team',
-        'member',
-        'Team Member',
-        'Basic member access to the team',
-        '00000000-0000-0000-0000-000000000000',
-        '00000000-0000-0000-0000-000000000000'
-    ),
-    (
-        'team',
-        'post_editor',
-        'Post Editor',
-        'Can create and edit posts within the team',
-        '00000000-0000-0000-0000-000000000000',
-        '00000000-0000-0000-0000-000000000000'
-    ) on conflict (org_id, team_id, scope, name)
-do nothing;
-
--- Insert basic role permissions for organization roles
--- Organization owner permissions
-insert into
-    role_permissions (role_id, resource, action, org_id, team_id)
-select
-    r.id,
-    resource,
-    action,
-    r.org_id,
-    r.team_id
-from
-    roles r,
-    (
-        values
-            ('organizations', 'view'),
-            ('organizations', 'edit'),
-            ('organizations', 'delete'),
-            ('organizations', 'manage'),
-            ('billing', 'view'),
-            ('billing', 'edit'),
-            ('billing', 'manage'),
-            ('members', 'view'),
-            ('members', 'edit'),
-            ('members', 'delete'),
-            ('members', 'invite'),
-            ('teams', 'view'),
-            ('teams', 'edit'),
-            ('teams', 'delete'),
-            ('teams', 'create'),
-            ('posts', 'view'),
-            ('posts', 'edit'),
-            ('posts', 'delete'),
-            ('posts', 'create')
-    ) as perms (resource, action)
-where
-    r.scope = 'organization'
-    and r.name = 'owner' on conflict (org_id, role_id, resource, action)
-do nothing;
-
--- Organization admin permissions
-insert into
-    role_permissions (role_id, resource, action, org_id, team_id)
-select
-    r.id,
-    resource,
-    action,
-    r.org_id,
-    r.team_id
-from
-    roles r,
-    (
-        values
-            ('organizations', 'view'),
-            ('organizations', 'edit'),
-            ('members', 'view'),
-            ('members', 'edit'),
-            ('members', 'invite'),
-            ('teams', 'view'),
-            ('teams', 'edit'),
-            ('teams', 'delete'),
-            ('teams', 'create'),
-            ('posts', 'view'),
-            ('posts', 'edit'),
-            ('posts', 'delete'),
-            ('posts', 'create')
-    ) as perms (resource, action)
-where
-    r.scope = 'organization'
-    and r.name = 'admin' on conflict (org_id, role_id, resource, action)
-do nothing;
-
--- Organization member permissions
-insert into
-    role_permissions (role_id, resource, action, org_id, team_id)
-select
-    r.id,
-    resource,
-    action,
-    r.org_id,
-    r.team_id
-from
-    roles r,
-    (
-        values
-            ('organizations', 'view'),
-            ('teams', 'view'),
-            ('posts', 'view')
-    ) as perms (resource, action)
-where
-    r.scope = 'organization'
-    and r.name = 'member' on conflict (org_id, role_id, resource, action)
-do nothing;
-
--- Team owner permissions
-insert into
-    role_permissions (role_id, resource, action, org_id, team_id)
-select
-    r.id,
-    resource,
-    action,
-    r.org_id,
-    r.team_id
-from
-    roles r,
-    (
-        values
-            ('teams', 'view'),
-            ('teams', 'edit'),
-            ('teams', 'delete'),
-            ('teams', 'manage'),
-            ('team_members', 'view'),
-            ('team_members', 'edit'),
-            ('team_members', 'delete'),
-            ('team_members', 'invite'),
-            ('posts', 'view'),
-            ('posts', 'edit'),
-            ('posts', 'delete'),
-            ('posts', 'create')
-    ) as perms (resource, action)
-where
-    r.scope = 'team'
-    and r.name = 'owner' on conflict (org_id, role_id, resource, action)
-do nothing;
-
--- Team admin permissions
-insert into
-    role_permissions (role_id, resource, action, org_id, team_id)
-select
-    r.id,
-    resource,
-    action,
-    r.org_id,
-    r.team_id
-from
-    roles r,
-    (
-        values
-            ('teams', 'view'),
-            ('teams', 'edit'),
-            ('team_members', 'view'),
-            ('team_members', 'edit'),
-            ('team_members', 'invite'),
-            ('posts', 'view'),
-            ('posts', 'edit'),
-            ('posts', 'delete'),
-            ('posts', 'create')
-    ) as perms (resource, action)
-where
-    r.scope = 'team'
-    and r.name = 'admin' on conflict (org_id, role_id, resource, action)
-do nothing;
-
--- Team member permissions
-insert into
-    role_permissions (role_id, resource, action, org_id, team_id)
-select
-    r.id,
-    resource,
-    action,
-    r.org_id,
-    r.team_id
-from
-    roles r,
-    (
-        values
-            ('teams', 'view'),
-            ('team_members', 'view'),
-            ('posts', 'view')
-    ) as perms (resource, action)
-where
-    r.scope = 'team'
-    and r.name = 'member' on conflict (org_id, role_id, resource, action)
-do nothing;
-
--- Team post editor permissions
-insert into
-    role_permissions (role_id, resource, action, org_id, team_id)
-select
-    r.id,
-    resource,
-    action,
-    r.org_id,
-    r.team_id
-from
-    roles r,
-    (
-        values
-            ('teams', 'view'),
-            ('team_members', 'view'),
-            ('posts', 'view'),
-            ('posts', 'edit'),
-            ('posts', 'create')
-    ) as perms (resource, action)
-where
-    r.scope = 'team'
-    and r.name = 'post_editor' on conflict (org_id, role_id, resource, action)
-do nothing;
-
--- insert into posts (id, team_id, org_id, title, content, created_at)
--- select  gen_random_uuid(),         
---         p.id,                       
---         p.org_id,                             
---         format('Post %s for project %s', gs, p.id),
---         repeat('Lorem ipsum ', 10),
---         now() - (gs % 365) * interval '1 day'
--- from    generate_series(1, 1000000) as gs
--- cross   join lateral (
---           select id, org_id
---           from   teams
---           order  by random()
---           limit  1
---         ) p;
--- Make sure you’re the role that would run through RLSer your test role is
--- select set_config('request.jwt.claim.sub', '62b43f81-c2c0-4efc-a689-59b925da153b', false);
--- -- Typical “feed” query that touches many rows
--- EXPLAIN ANALYZE
--- select id, title, content
--- from   posts
--- where  has_team_permission(team_id, 'posts', 'view')
--- order  by created_at desc
--- limit  20000;
+-- -- seed initial user
+-- insert into
+--     auth.users (id, email)
+-- values
+--     ('00000000-0000-0000-0000-000000000000', 'test@test.com');
+-- -- seed initial organization and team
+-- insert into
+--     organizations (
+--         id,
+--         name,
+--         type,
+--         primary_owner_user_id
+--     )
+-- values
+--     (
+--         '00000000-0000-0000-0000-000000000000',
+--         'My Organization',
+--         'organization',
+--         '00000000-0000-0000-0000-000000000000'
+--     );
+-- insert into
+--     teams (id, name, org_id, primary_owner_user_id)
+-- values
+--     (
+--         '00000000-0000-0000-0000-000000000000',
+--         'My Team',
+--         '00000000-0000-0000-0000-000000000000',
+--         '00000000-0000-0000-0000-000000000000'
+--     );
+-- -- Seed basic roles for organizations and teams
+-- -- Insert organization-scoped roles
+-- insert into
+--     roles (scope, name, display_name, description, org_id, team_id)
+-- values
+--     (
+--         'organization',
+--         'owner',
+--         'Owner',
+--         'Full access to the organization including billing and member management',
+--         '00000000-0000-0000-0000-000000000000',
+--         null
+--     ),
+--     (
+--         'organization',
+--         'admin',
+--         'Admin',
+--         'Administrative access to the organization excluding billing',
+--         '00000000-0000-0000-0000-000000000000',
+--         null
+--     ),
+--     (
+--         'organization',
+--         'member',
+--         'Member',
+--         'Basic member access to the organization',
+--         '00000000-0000-0000-0000-000000000000',
+--         null
+--     ) on conflict (org_id, team_id, scope, name)
+-- do nothing;
+-- -- Insert team-scoped roles
+-- insert into
+--     roles (scope, name, display_name, description, org_id, team_id)
+-- values
+--     (
+--         'team',
+--         'owner',
+--         'Team Owner',
+--         'Full access to the team including member management',
+--         '00000000-0000-0000-0000-000000000000',
+--         '00000000-0000-0000-0000-000000000000'
+--     ),
+--     (
+--         'team',
+--         'admin',
+--         'Team Admin',
+--         'Administrative access to the team',
+--         '00000000-0000-0000-0000-000000000000',
+--         '00000000-0000-0000-0000-000000000000'
+--     ),
+--     (
+--         'team',
+--         'member',
+--         'Team Member',
+--         'Basic member access to the team',
+--         '00000000-0000-0000-0000-000000000000',
+--         '00000000-0000-0000-0000-000000000000'
+--     ),
+--     (
+--         'team',
+--         'post_editor',
+--         'Post Editor',
+--         'Can create and edit posts within the team',
+--         '00000000-0000-0000-0000-000000000000',
+--         '00000000-0000-0000-0000-000000000000'
+--     ) on conflict (org_id, team_id, scope, name)
+-- do nothing;
+-- -- Insert basic role permissions for organization roles
+-- -- Organization owner permissions
+-- insert into
+--     role_permissions (role_id, resource, action, org_id, team_id)
+-- select
+--     r.id,
+--     resource,
+--     action,
+--     r.org_id,
+--     r.team_id
+-- from
+--     roles r,
+--     (
+--         values
+--             ('organizations', 'view'),
+--             ('organizations', 'edit'),
+--             ('organizations', 'delete'),
+--             ('organizations', 'manage'),
+--             ('billing', 'view'),
+--             ('billing', 'edit'),
+--             ('billing', 'manage'),
+--             ('members', 'view'),
+--             ('members', 'edit'),
+--             ('members', 'delete'),
+--             ('members', 'invite'),
+--             ('teams', 'view'),
+--             ('teams', 'edit'),
+--             ('teams', 'delete'),
+--             ('teams', 'create'),
+--             ('posts', 'view'),
+--             ('posts', 'edit'),
+--             ('posts', 'delete'),
+--             ('posts', 'create')
+--     ) as perms (resource, action)
+-- where
+--     r.scope = 'organization'
+--     and r.name = 'owner' on conflict (org_id, team_id, role_id, resource, action)
+-- do nothing;
+-- -- Organization admin permissions
+-- insert into
+--     role_permissions (role_id, resource, action, org_id, team_id)
+-- select
+--     r.id,
+--     resource,
+--     action,
+--     r.org_id,
+--     r.team_id
+-- from
+--     roles r,
+--     (
+--         values
+--             ('organizations', 'view'),
+--             ('organizations', 'edit'),
+--             ('members', 'view'),
+--             ('members', 'edit'),
+--             ('members', 'invite'),
+--             ('teams', 'view'),
+--             ('teams', 'edit'),
+--             ('teams', 'delete'),
+--             ('teams', 'create'),
+--             ('posts', 'view'),
+--             ('posts', 'edit'),
+--             ('posts', 'delete'),
+--             ('posts', 'create')
+--     ) as perms (resource, action)
+-- where
+--     r.scope = 'organization'
+--     and r.name = 'admin' on conflict (org_id, team_id, role_id, resource, action)
+-- do nothing;
+-- -- Organization member permissions
+-- insert into
+--     role_permissions (role_id, resource, action, org_id, team_id)
+-- select
+--     r.id,
+--     resource,
+--     action,
+--     r.org_id,
+--     r.team_id
+-- from
+--     roles r,
+--     (
+--         values
+--             ('organizations', 'view'),
+--             ('teams', 'view'),
+--             ('posts', 'view')
+--     ) as perms (resource, action)
+-- where
+--     r.scope = 'organization'
+--     and r.name = 'member' on conflict (org_id, team_id, role_id, resource, action)
+-- do nothing;
+-- -- Team owner permissions
+-- insert into
+--     role_permissions (role_id, resource, action, org_id, team_id)
+-- select
+--     r.id,
+--     resource,
+--     action,
+--     r.org_id,
+--     r.team_id
+-- from
+--     roles r,
+--     (
+--         values
+--             ('teams', 'view'),
+--             ('teams', 'edit'),
+--             ('teams', 'delete'),
+--             ('teams', 'manage'),
+--             ('team_members', 'view'),
+--             ('team_members', 'edit'),
+--             ('team_members', 'delete'),
+--             ('team_members', 'invite'),
+--             ('posts', 'view'),
+--             ('posts', 'edit'),
+--             ('posts', 'delete'),
+--             ('posts', 'create')
+--     ) as perms (resource, action)
+-- where
+--     r.scope = 'team'
+--     and r.name = 'owner' on conflict (org_id, team_id, role_id, resource, action)
+-- do nothing;
+-- -- Team admin permissions
+-- insert into
+--     role_permissions (role_id, resource, action, org_id, team_id)
+-- select
+--     r.id,
+--     resource,
+--     action,
+--     r.org_id,
+--     r.team_id
+-- from
+--     roles r,
+--     (
+--         values
+--             ('teams', 'view'),
+--             ('teams', 'edit'),
+--             ('team_members', 'view'),
+--             ('team_members', 'edit'),
+--             ('team_members', 'invite'),
+--             ('posts', 'view'),
+--             ('posts', 'edit'),
+--             ('posts', 'delete'),
+--             ('posts', 'create')
+--     ) as perms (resource, action)
+-- where
+--     r.scope = 'team'
+--     and r.name = 'admin' on conflict (org_id, team_id, role_id, resource, action)
+-- do nothing;
+-- -- Team member permissions
+-- insert into
+--     role_permissions (role_id, resource, action, org_id, team_id)
+-- select
+--     r.id,
+--     resource,
+--     action,
+--     r.org_id,
+--     r.team_id
+-- from
+--     roles r,
+--     (
+--         values
+--             ('teams', 'view'),
+--             ('team_members', 'view'),
+--             ('posts', 'view')
+--     ) as perms (resource, action)
+-- where
+--     r.scope = 'team'
+--     and r.name = 'member' on conflict (org_id, team_id, role_id, resource, action)
+-- do nothing;
+-- -- Team post editor permissions
+-- insert into
+--     role_permissions (role_id, resource, action, org_id, team_id)
+-- select
+--     r.id,
+--     resource,
+--     action,
+--     r.org_id,
+--     r.team_id
+-- from
+--     roles r,
+--     (
+--         values
+--             ('teams', 'view'),
+--             ('team_members', 'view'),
+--             ('posts', 'view'),
+--             ('posts', 'edit'),
+--             ('posts', 'create')
+--     ) as perms (resource, action)
+-- where
+--     r.scope = 'team'
+--     and r.name = 'post_editor' on conflict (org_id, team_id, role_id, resource, action)
+-- do nothing;
+-- -- insert into posts (id, team_id, org_id, title, content, created_at)
+-- -- select  gen_random_uuid(),         
+-- --         p.id,                       
+-- --         p.org_id,                             
+-- --         format('Post %s for project %s', gs, p.id),
+-- --         repeat('Lorem ipsum ', 10),
+-- --         now() - (gs % 365) * interval '1 day'
+-- -- from    generate_series(1, 1000000) as gs
+-- -- cross   join lateral (
+-- --           select id, org_id
+-- --           from   teams
+-- --           order  by random()
+-- --           limit  1
+-- --         ) p;
+-- -- Make sure you’re the role that would run through RLSer your test role is
+-- -- select set_config('request.jwt.claim.sub', '62b43f81-c2c0-4efc-a689-59b925da153b', false);
+-- -- -- Typical “feed” query that touches many rows
+-- -- EXPLAIN ANALYZE
+-- -- select id, title, content
+-- -- from   posts
+-- -- where  has_team_permission(team_id, 'posts', 'view')
+-- -- order  by created_at desc
+-- -- limit  20000;

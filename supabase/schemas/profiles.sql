@@ -79,11 +79,11 @@ begin
     -- first we setup the user profile
     -- TODO: see if we can get the user's name from the auth.users table once we learn how oauth works
     -- TODO: If no name is provided, use the first part of the email address
-    if new.email IS NOT NULL then
-        generated_user_name := split_part(new.email, '@', 1);
+    if NEW.email IS NOT NULL then
+        generated_user_name := split_part(NEW.email, '@', 1);
     end if;
 
-    insert into public.profiles (id, user_name) values (new.id, generated_user_name);
+    insert into public.profiles (id, user_name) values (NEW.id, generated_user_name);
 
     -- only create the first organization if private organizations is enabled
     if supajump.is_set('enable_personal_organizations') = true then
@@ -134,8 +134,8 @@ execute procedure supajump.run_new_user_setup ();
 --   -- first we setup the user profile
 --   -- TODO: see if we can get the user's name from the auth.users table once we learn how oauth works
 --   -- TODO: If no name is provided, use the first part of the email address
---   if new.email IS NOT NULL then
---     generated_user_name := split_part(new.email, '@', 1);
+--   if NEW.email IS NOT NULL then
+--     generated_user_name := split_part(NEW.email, '@', 1);
 --   end if;
 --     -- Check if generated_user_name is NULL or empty and assign default_organization_name if it is
 --   if generated_user_name IS NULL or generated_user_name = '' then
@@ -146,7 +146,7 @@ execute procedure supajump.run_new_user_setup ();
 --   if owner_role_id is null then
 --     raise exception 'Owner role not found in roles table';
 --   end if;
---   insert into public.profiles (id, user_name) values (new.id, generated_user_name);
+--   insert into public.profiles (id, user_name) values (NEW.id, generated_user_name);
 --   -- only create the first organization if private organizations is enabled
 --   -- if supajump.is_set('enable_personal_organizations') = true then
 --   -- create the new users's personal organization

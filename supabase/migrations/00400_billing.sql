@@ -5,7 +5,7 @@
 create table
     billing_customers (
         -- UUID from auth.users
-        org_id text references organizations not null primary key,
+        org_id uuid references organizations not null primary key,
         -- The user's customer ID in Stripe. User must not be able to update this.
         customer_id text,
         -- The email address the customer wants to use for invoicing
@@ -21,6 +21,14 @@ add constraint check_provider check (provider in ('stripe'));
 
 alter table billing_customers enable row level security;
 
+-- create policy "Can only view own customer data." on billing_customers for
+-- select
+--     using (
+--         org_id in (
+--             select
+--                 supajump.get_organizations_for_current_user () as org_ids
+--         )
+--     );
 -- No policies as this is a private table that the user must not have access to.
 /**
  * PRODUCTS
@@ -108,7 +116,7 @@ create table
     billing_subscriptions (
         -- Subscription ID from Stripe, e.g. sub_1234.
         id text primary key,
-        org_id text references organizations not null,
+        org_id uuid references organizations not null,
         -- The status of the subscription object, one of subscription_status type above.
         status text,
         -- Set of key-value pairs, used to store additional information about the object in a structured format.

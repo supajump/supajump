@@ -2,8 +2,6 @@ import { useMemo } from 'react';
 // This is sample data.
 import { usePathname } from 'next/navigation';
 import {
-  BookOpen,
-  Bot,
   Frame,
   FileTextIcon,
   type LucideIcon,
@@ -63,76 +61,6 @@ export function useNavMain({
           {
             title: 'Post Settings',
             url: `/app/${org_id}${team_id ? `/${team_id}` : ''}/posts/settings`,
-          },
-        ],
-      },
-      {
-        title: 'Chat',
-        url: `/app/${org_id}${team_id ? `/${team_id}` : ''}/chat`,
-        icon: Bot,
-        isActive: pathname?.includes(
-          `/app/${org_id}${team_id ? `/${team_id}` : ''}/chat`
-        ),
-        items: [
-          {
-            title: 'New Chat',
-            url: `/app/${org_id}${team_id ? `/${team_id}` : ''}/chat`,
-          },
-          {
-            title: 'History',
-            url: `/app/${org_id}${team_id ? `/${team_id}` : ''}/chat/history`,
-          },
-          {
-            title: 'Settings',
-            url: `/app/${org_id}${team_id ? `/${team_id}` : ''}/chat/settings`,
-          },
-        ],
-      },
-      {
-        title: 'Inventory',
-        url: '#',
-        icon: BookOpen,
-        isActive: pathname?.includes(
-          `/app/${org_id}${team_id ? `/${team_id}` : ''}/inventory`
-        ),
-        items: [
-          {
-            title: 'Vehicles',
-            url: `/app/${org_id}${
-              team_id ? `/${team_id}` : ''
-            }/inventory/vehicles`,
-            isActive: pathname?.includes(
-              `/app/${org_id}${team_id ? `/${team_id}` : ''}/inventory/vehicles`
-            ),
-          },
-          {
-            title: 'Imports',
-            url: `/app/${org_id}${
-              team_id ? `/${team_id}` : ''
-            }/inventory/imports`,
-            isActive: pathname?.includes(
-              `/app/${org_id}${team_id ? `/${team_id}` : ''}/inventory/imports`
-            ),
-          },
-          {
-            title: 'Feeds',
-            url: `/app/${org_id}${
-              team_id ? `/${team_id}` : ''
-            }/inventory/feeds`,
-            isActive: pathname?.includes(
-              `/app/${org_id}${team_id ? `/${team_id}` : ''}/inventory/feeds`
-            ),
-          },
-          {
-            title: 'Changelog',
-            url: `/app/${org_id}${
-              team_id ? `/${team_id}` : ''
-            }/inventory/changelog`,
-            isActive: pathname?.includes(
-              `/app/${org_id}${
-                team_id ? `/${team_id}` : ''
-              }/inventory/changelog`
-            ),
           },
         ],
       },

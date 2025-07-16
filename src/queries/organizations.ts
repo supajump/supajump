@@ -69,7 +69,7 @@ async function createWithTeam(orgName: string, teamName: string) {
   }
   const { data: newTeamId, error: teamError } = await supabase.rpc(
     'create_team_and_add_current_user_as_owner',
-    { team_name: teamName, org_id: newOrgId }
+    { team_name: teamName, input_org_id: newOrgId }
   )
   if (teamError || !newTeamId) {
     throw new Error(teamError?.message ?? 'Failed to create team')
