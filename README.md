@@ -12,40 +12,66 @@ This is a [Turborepo](https://turbo.build/repo) monorepo, allowing you to scale 
 - **Multi-tenant schema** including organizations, teams and posts
 - **Dynamic role-based access control** with flexible permissions stored in database
 - **Query helpers** exposed via the `api` object
+- **CLI tool** for quick project scaffolding
 
 ## Project Structure
 
 ```
 .
 ├── apps/
-│   └── app/              # Next.js application
-├── packages/             # Shared packages (ready for future additions)
-├── supabase/            # Database schemas and migrations
-├── turbo.json           # Turborepo configuration
-└── pnpm-workspace.yaml  # Workspace configuration
+│   └── app/                    # Next.js application
+├── packages/
+│   └── create-supajump-app/    # CLI for scaffolding new projects
+├── supabase/                   # Database schemas and migrations
+├── turbo.json                  # Turborepo configuration
+└── pnpm-workspace.yaml         # Workspace configuration
 ```
 
-## Getting Started
+## Quick Start
 
-1. Install dependencies (from root)
+### Using the CLI (Recommended)
+
+```bash
+npx create-supajump-app my-app
+# or
+pnpm create supajump-app my-app
+# or
+yarn create supajump-app my-app
+```
+
+The CLI will:
+- Prompt for your preferred package manager
+- Create a new project with the Supajump template
+- Set up environment files
+- Optionally initialize git
+- Optionally install dependencies
+
+### Manual Setup
+
+1. Clone the repository
+   ```bash
+   git clone https://github.com/yourusername/supajump.git my-app
+   cd my-app
+   ```
+2. Install dependencies
    ```bash
    pnpm install
    ```
-2. Start Supabase locally (requires the [Supabase CLI](https://supabase.com/docs/guides/cli)) and apply migrations/seed data
+3. Start Supabase locally (requires the [Supabase CLI](https://supabase.com/docs/guides/cli))
    ```bash
-   supabase start    # or `supabase db reset`
+   supabase start
    ```
-3. Create `.env.local` in the app directory
+4. Set up environment variables
    ```bash
    cd apps/app
-   cp .env.example .env.local  # if available
+   cp .env.example .env.local
    ```
-   Set your Supabase credentials:
+   Update `.env.local` with your Supabase credentials:
    ```env
    NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
    ```
-4. Run the development server (from root)
+5. Run the development server
    ```bash
    pnpm dev
    ```

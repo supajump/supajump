@@ -8,6 +8,7 @@ Supajump is a multi-tenant SaaS starter kit built with Next.js 15 and Supabase. 
 
 This is a Turborepo monorepo with the following structure:
 - `/apps/app` - The main Next.js application
+- `/packages/create-supajump-app` - CLI tool for creating new Supajump projects
 - `/packages/*` - Shared packages (to be added as needed)
 
 ## Essential Commands
@@ -47,8 +48,24 @@ const { data } = useQuery(api.posts.findMany({ teamId }))
 ### Feature-Based Organization
 New features should be added to `/apps/app/src/features/[feature-name]/`:
 - Components specific to the feature
-- Hooks related to the feature
+- Hooks related to the feature (in `hooks/` subdirectory)
+- Queries related to the feature (in `queries/` subdirectory)
 - Types for the feature
+
+Example: The posts feature is organized as:
+```
+/apps/app/src/features/posts/
+├── columns.tsx
+├── create-post-modal.tsx
+├── post-editor.tsx
+├── posts-table.tsx
+├── recent-posts.tsx
+├── recent-posts-client.tsx
+├── hooks/
+│   └── use-posts.ts
+└── queries/
+    └── posts.ts
+```
 
 ### Multi-Tenant Data Model
 - **Organizations**: Top-level tenant container
@@ -130,3 +147,26 @@ The database uses these main schemas:
 - `org_member_roles` / `team_member_roles`: Role assignments
 
 Row Level Security is enforced on all tables - new tables must have appropriate RLS policies.
+
+## CLI Tool
+
+The `create-supajump-app` CLI provides a quick way to scaffold new Supajump projects:
+
+```bash
+# Development (from packages/create-supajump-app)
+pnpm dev     # Watch mode for CLI development
+pnpm build   # Build the CLI
+npm link     # Link CLI globally for testing
+
+# Usage
+npx create-supajump-app my-app
+# or
+pnpm create supajump-app my-app
+```
+
+The CLI:
+- Prompts for project configuration (package manager, git init, etc.)
+- Copies the template with proper filtering (excludes node_modules, .next, etc.)
+- Creates `.env.local` with placeholder values
+- Optionally initializes git and installs dependencies
+- Provides clear next steps for getting started
