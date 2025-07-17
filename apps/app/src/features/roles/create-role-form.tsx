@@ -14,6 +14,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
+
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
@@ -22,6 +23,7 @@ import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
+
 
 interface FormValues {
   scope: "organization" | "team"
@@ -45,6 +47,7 @@ export function CreateRoleForm({ orgId, teams }: CreateRoleFormProps) {
       name: "",
       displayName: "",
       description: "",
+
     },
   })
   const scope = form.watch("scope")
@@ -77,6 +80,7 @@ export function CreateRoleForm({ orgId, teams }: CreateRoleFormProps) {
 
     // Redirect to role edit page to manage permissions
     router.push(`/app/${orgId}/roles/${data.id}/edit`)
+
   }
 
   return (
@@ -168,6 +172,7 @@ export function CreateRoleForm({ orgId, teams }: CreateRoleFormProps) {
             </FormItem>
           )}
         />
+
         {error && <p className="text-sm text-red-500">{error}</p>}
         <Button type="submit" className="w-full" disabled={isLoading}>
           {isLoading ? "Creating..." : "Create Role"}
