@@ -1294,122 +1294,340 @@ select
     or primary_owner_user_id = auth.uid ()
   );
 
--- Roles policies (primary owners can manage roles, but only if dynamic roles are enabled)
-create policy "Primary owners of organization can view roles" on public.roles for
-select
-  using (
+-- Generic RLS policies for roles
+create policy "rls_select_roles" on public.roles for
+  select to authenticated using (
+    -- Team-level permissions
     exists (
-      select
-        1
-      from
-        organizations o
-      where
-        o.primary_owner_user_id = auth.uid ()
-        and o.id = roles.org_id
+      select 1 from supajump.user_permissions_view up
+      where up.user_id = auth.uid ()
+        and up.group_id = roles.team_id
+        and up.resource = 'roles'
+        and up.action = 'view'
+        and up.scope = 'all'
+    )
+    -- Organization-level permissions
+    or exists (
+      select 1 from supajump.user_permissions_view up
+      where up.user_id = auth.uid ()
+        and up.group_id = roles.org_id
+        and up.resource = 'roles'
+        and up.action = 'view'
+        and up.scope = 'all'
+    )
+    -- Team primary owner bypass
+    or exists (
+      select 1 from teams t
+      where t.id = roles.team_id
+        and t.primary_owner_user_id = auth.uid ()
+    )
+    -- Organization primary owner bypass
+    or exists (
+      select 1 from organizations o
+      where o.id = roles.org_id
+        and o.primary_owner_user_id = auth.uid ()
     )
   );
 
-create policy "Primary owners of organization can create roles" on public.roles for insert
-with
-  check (
-    supajump.dynamic_roles_enabled ()
-    and exists (
-      select
-        1
-      from
-        organizations o
-      where
-        o.primary_owner_user_id = auth.uid ()
-        and o.id = roles.org_id
+create policy "rls_insert_roles" on public.roles for insert to authenticated
+  with check (
+    -- Team-level permissions
+    exists (
+      select 1 from supajump.user_permissions_view up
+      where up.user_id = auth.uid ()
+        and up.group_id = team_id
+        and up.resource = 'roles'
+        and up.action = 'create'
+        and up.scope = 'all'
+    )
+    -- Organization-level permissions
+    or exists (
+      select 1 from supajump.user_permissions_view up
+      where up.user_id = auth.uid ()
+        and up.group_id = org_id
+        and up.resource = 'roles'
+        and up.action = 'create'
+        and up.scope = 'all'
+    )
+    -- Team primary owner bypass
+    or exists (
+      select 1 from teams t
+      where t.id = team_id
+        and t.primary_owner_user_id = auth.uid ()
+    )
+    -- Organization primary owner bypass
+    or exists (
+      select 1 from organizations o
+      where o.id = org_id
+        and o.primary_owner_user_id = auth.uid ()
     )
   );
 
-create policy "Primary owners of organization can update roles" on public.roles for
-update
-with
-  check (
-    supajump.dynamic_roles_enabled ()
-    and exists (
-      select
-        1
-      from
-        organizations o
-      where
-        o.primary_owner_user_id = auth.uid ()
-        and o.id = roles.org_id
+create policy "rls_update_roles" on public.roles for
+  update to authenticated using (
+    -- Team-level permissions
+    exists (
+      select 1 from supajump.user_permissions_view up
+      where up.user_id = auth.uid ()
+        and up.group_id = roles.team_id
+        and up.resource = 'roles'
+        and up.action = 'edit'
+        and up.scope = 'all'
     )
-  );
-
-create policy "Primary owners of organization can delete roles" on public.roles for delete using (
-  supajump.dynamic_roles_enabled ()
-  and exists (
-    select
-      1
-    from
-      organizations o
-    where
-      o.primary_owner_user_id = auth.uid ()
-      and o.id = roles.org_id
+    -- Organization-level permissions
+    or exists (
+      select 1 from supajump.user_permissions_view up
+      where up.user_id = auth.uid ()
+        and up.group_id = roles.org_id
+        and up.resource = 'roles'
+        and up.action = 'edit'
+        and up.scope = 'all'
+    )
+    -- Team primary owner bypass
+    or exists (
+      select 1 from teams t
+      where t.id = roles.team_id
+        and t.primary_owner_user_id = auth.uid ()
+    )
+    -- Organization primary owner bypass
+    or exists (
+      select 1 from organizations o
+      where o.id = roles.org_id
+        and o.primary_owner_user_id = auth.uid ()
+    )
   )
+  with check (
+    -- Team-level permissions
+    exists (
+      select 1 from supajump.user_permissions_view up
+      where up.user_id = auth.uid ()
+        and up.group_id = team_id
+        and up.resource = 'roles'
+        and up.action = 'edit'
+        and up.scope = 'all'
+    )
+    -- Organization-level permissions
+    or exists (
+      select 1 from supajump.user_permissions_view up
+      where up.user_id = auth.uid ()
+        and up.group_id = org_id
+        and up.resource = 'roles'
+        and up.action = 'edit'
+        and up.scope = 'all'
+    )
+    -- Team primary owner bypass
+    or exists (
+      select 1 from teams t
+      where t.id = team_id
+        and t.primary_owner_user_id = auth.uid ()
+    )
+    -- Organization primary owner bypass
+    or exists (
+      select 1 from organizations o
+      where o.id = org_id
+        and o.primary_owner_user_id = auth.uid ()
+    )
+  );
+
+create policy "rls_delete_roles" on public.roles for delete to authenticated using (
+    -- Team-level permissions
+    exists (
+        select 1 from supajump.user_permissions_view up
+        where up.user_id = auth.uid ()
+          and up.group_id = roles.team_id
+          and up.resource = 'roles'
+          and up.action = 'delete'
+          and up.scope = 'all'
+    )
+    -- Organization-level permissions
+    or exists (
+        select 1 from supajump.user_permissions_view up
+        where up.user_id = auth.uid ()
+          and up.group_id = roles.org_id
+          and up.resource = 'roles'
+          and up.action = 'delete'
+          and up.scope = 'all'
+    )
+    -- Team primary owner bypass
+    or exists (
+        select 1 from teams t
+        where t.id = roles.team_id
+          and t.primary_owner_user_id = auth.uid ()
+    )
+    -- Organization primary owner bypass
+    or exists (
+        select 1 from organizations o
+        where o.id = roles.org_id
+          and o.primary_owner_user_id = auth.uid ()
+    )
 );
 
--- Role permissions policies (primary owners can manage, but only if dynamic roles are enabled)
-create policy "Primary owners of organization can view role permissions" on public.role_permissions for
-select
-  using (
+-- Generic RLS policies for role_permissions
+create policy "rls_select_role_permissions" on public.role_permissions for
+  select to authenticated using (
+    -- Team-level permissions
     exists (
-      select
-        1
-      from
-        organizations o
-      where
-        o.primary_owner_user_id = auth.uid ()
-        and o.id = role_permissions.org_id
+      select 1 from supajump.user_permissions_view up
+      where up.user_id = auth.uid ()
+        and up.group_id = role_permissions.team_id
+        and up.resource = 'role_permissions'
+        and up.action = 'view'
+        and up.scope = 'all'
+    )
+    -- Organization-level permissions
+    or exists (
+      select 1 from supajump.user_permissions_view up
+      where up.user_id = auth.uid ()
+        and up.group_id = role_permissions.org_id
+        and up.resource = 'role_permissions'
+        and up.action = 'view'
+        and up.scope = 'all'
+    )
+    -- Team primary owner bypass
+    or exists (
+      select 1 from teams t
+      where t.id = role_permissions.team_id
+        and t.primary_owner_user_id = auth.uid ()
+    )
+    -- Organization primary owner bypass
+    or exists (
+      select 1 from organizations o
+      where o.id = role_permissions.org_id
+        and o.primary_owner_user_id = auth.uid ()
     )
   );
 
-create policy "Primary owners of organization can create role permissions" on public.role_permissions for insert
-with
-  check (
-    supajump.dynamic_roles_enabled ()
-    and exists (
-      select
-        1
-      from
-        organizations o
-      where
-        o.primary_owner_user_id = auth.uid ()
-        and o.id = role_permissions.org_id
+create policy "rls_insert_role_permissions" on public.role_permissions for insert to authenticated
+  with check (
+    -- Team-level permissions
+    exists (
+      select 1 from supajump.user_permissions_view up
+      where up.user_id = auth.uid ()
+        and up.group_id = team_id
+        and up.resource = 'role_permissions'
+        and up.action = 'create'
+        and up.scope = 'all'
+    )
+    -- Organization-level permissions
+    or exists (
+      select 1 from supajump.user_permissions_view up
+      where up.user_id = auth.uid ()
+        and up.group_id = org_id
+        and up.resource = 'role_permissions'
+        and up.action = 'create'
+        and up.scope = 'all'
+    )
+    -- Team primary owner bypass
+    or exists (
+      select 1 from teams t
+      where t.id = team_id
+        and t.primary_owner_user_id = auth.uid ()
+    )
+    -- Organization primary owner bypass
+    or exists (
+      select 1 from organizations o
+      where o.id = org_id
+        and o.primary_owner_user_id = auth.uid ()
     )
   );
 
-create policy "Primary owners of organization can update role permissions" on public.role_permissions for
-update
-with
-  check (
-    supajump.dynamic_roles_enabled ()
-    and exists (
-      select
-        1
-      from
-        organizations o
-      where
-        o.primary_owner_user_id = auth.uid ()
-        and o.id = role_permissions.org_id
+create policy "rls_update_role_permissions" on public.role_permissions for
+  update to authenticated using (
+    -- Team-level permissions
+    exists (
+      select 1 from supajump.user_permissions_view up
+      where up.user_id = auth.uid ()
+        and up.group_id = role_permissions.team_id
+        and up.resource = 'role_permissions'
+        and up.action = 'edit'
+        and up.scope = 'all'
     )
-  );
-
-create policy "Primary owners of organization can delete role permissions" on public.role_permissions for delete using (
-  supajump.dynamic_roles_enabled ()
-  and exists (
-    select
-      1
-    from
-      organizations o
-    where
-      o.primary_owner_user_id = auth.uid ()
-      and o.id = role_permissions.org_id
+    -- Organization-level permissions
+    or exists (
+      select 1 from supajump.user_permissions_view up
+      where up.user_id = auth.uid ()
+        and up.group_id = role_permissions.org_id
+        and up.resource = 'role_permissions'
+        and up.action = 'edit'
+        and up.scope = 'all'
+    )
+    -- Team primary owner bypass
+    or exists (
+      select 1 from teams t
+      where t.id = role_permissions.team_id
+        and t.primary_owner_user_id = auth.uid ()
+    )
+    -- Organization primary owner bypass
+    or exists (
+      select 1 from organizations o
+      where o.id = role_permissions.org_id
+        and o.primary_owner_user_id = auth.uid ()
+    )
   )
+  with check (
+    -- Team-level permissions
+    exists (
+      select 1 from supajump.user_permissions_view up
+      where up.user_id = auth.uid ()
+        and up.group_id = team_id
+        and up.resource = 'role_permissions'
+        and up.action = 'edit'
+        and up.scope = 'all'
+    )
+    -- Organization-level permissions
+    or exists (
+      select 1 from supajump.user_permissions_view up
+      where up.user_id = auth.uid ()
+        and up.group_id = org_id
+        and up.resource = 'role_permissions'
+        and up.action = 'edit'
+        and up.scope = 'all'
+    )
+    -- Team primary owner bypass
+    or exists (
+      select 1 from teams t
+      where t.id = team_id
+        and t.primary_owner_user_id = auth.uid ()
+    )
+    -- Organization primary owner bypass
+    or exists (
+      select 1 from organizations o
+      where o.id = org_id
+        and o.primary_owner_user_id = auth.uid ()
+    )
+  );
+
+create policy "rls_delete_role_permissions" on public.role_permissions for delete to authenticated using (
+    -- Team-level permissions
+    exists (
+        select 1 from supajump.user_permissions_view up
+        where up.user_id = auth.uid ()
+          and up.group_id = role_permissions.team_id
+          and up.resource = 'role_permissions'
+          and up.action = 'delete'
+          and up.scope = 'all'
+    )
+    -- Organization-level permissions
+    or exists (
+        select 1 from supajump.user_permissions_view up
+        where up.user_id = auth.uid ()
+          and up.group_id = role_permissions.org_id
+          and up.resource = 'role_permissions'
+          and up.action = 'delete'
+          and up.scope = 'all'
+    )
+    -- Team primary owner bypass
+    or exists (
+        select 1 from teams t
+        where t.id = role_permissions.team_id
+          and t.primary_owner_user_id = auth.uid ()
+    )
+    -- Organization primary owner bypass
+    or exists (
+        select 1 from organizations o
+        where o.id = role_permissions.org_id
+          and o.primary_owner_user_id = auth.uid ()
+    )
 );
 
 /*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
