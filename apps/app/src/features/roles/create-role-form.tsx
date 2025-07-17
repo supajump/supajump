@@ -1,44 +1,36 @@
-'use client'
+"use client"
 
-import { useState } from 'react'
-import { useForm, useFieldArray } from 'react-hook-form'
-import { createClient } from '@/lib/supabase/client'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
+import { Button } from "@/components/ui/button"
 import {
   Form,
+  FormControl,
   FormField,
   FormItem,
   FormLabel,
-  FormControl,
   FormMessage,
-} from '@/components/ui/form'
+} from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
 import {
   Select,
-  SelectTrigger,
-  SelectValue,
   SelectContent,
   SelectItem,
-} from '@/components/ui/select'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
 
-interface Permission {
-  resource: string
-  action: string
-  scope: 'all' | 'own'
-  cascade_down: boolean
-  target_kind: string
-}
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { createClient } from "@/lib/supabase/client"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
+import { useForm } from "react-hook-form"
+
 
 interface FormValues {
-  scope: 'organization' | 'team'
+  scope: "organization" | "team"
   name: string
   displayName: string
   description: string
   teamId?: string
-  permissions: Permission[]
 }
 
 interface CreateRoleFormProps {
@@ -48,77 +40,47 @@ interface CreateRoleFormProps {
 
 export function CreateRoleForm({ orgId, teams }: CreateRoleFormProps) {
   const supabase = createClient()
+  const router = useRouter()
   const form = useForm<FormValues>({
     defaultValues: {
-      scope: 'organization',
-      name: '',
-      displayName: '',
-      description: '',
-      permissions: [
-        {
-          resource: '',
-          action: '',
-          scope: 'all',
-          cascade_down: false,
-          target_kind: '',
-        },
-      ],
+      scope: "organization",
+      name: "",
+      displayName: "",
+      description: "",
+
     },
   })
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: 'permissions',
-  })
-  const scope = form.watch('scope')
+  const scope = form.watch("scope")
 
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
 
   async function onSubmit(values: FormValues) {
     setIsLoading(true)
     setError(null)
-    setSuccess(null)
+
     const { data, error } = await supabase
-      .from('roles')
+      .from("roles")
       .insert({
         scope: values.scope,
         name: values.name,
         display_name: values.displayName,
         description: values.description,
         org_id: orgId,
-        team_id: values.scope === 'team' ? values.teamId : null,
+        team_id: values.scope === "team" ? values.teamId : null,
       })
       .select()
       .single()
 
     if (error || !data) {
-      setError(error?.message || 'Failed to create role')
+      setError(error?.message || "Failed to create role")
       setIsLoading(false)
       return
     }
 
-    for (const perm of values.permissions) {
-      const { error: permError } = await supabase.from('role_permissions').insert({
-        role_id: data.id,
-        org_id: orgId,
-        team_id: values.scope === 'team' ? values.teamId : null,
-        resource: perm.resource,
-        action: perm.action,
-        scope: perm.scope,
-        cascade_down: perm.cascade_down,
-        target_kind: perm.target_kind,
-      })
-      if (permError) {
-        setError(permError.message)
-        setIsLoading(false)
-        return
-      }
-    }
+    // Redirect to role edit page to manage permissions
+    router.push(`/app/${orgId}/roles/${data.id}/edit`)
 
-    setSuccess('Role created successfully')
-    form.reset()
-    setIsLoading(false)
   }
 
   return (
@@ -145,11 +107,11 @@ export function CreateRoleForm({ orgId, teams }: CreateRoleFormProps) {
             </FormItem>
           )}
         />
-        {scope === 'team' && (
+        {scope === "team" && (
           <FormField
             control={form.control}
             name="teamId"
-            rules={{ required: 'Team is required' }}
+            rules={{ required: "Team is required" }}
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Team</FormLabel>
@@ -175,7 +137,7 @@ export function CreateRoleForm({ orgId, teams }: CreateRoleFormProps) {
         <FormField
           control={form.control}
           name="name"
-          rules={{ required: 'Role name is required' }}
+          rules={{ required: "Role name is required" }}
           render={({ field }) => (
             <FormItem>
               <FormLabel>Name</FormLabel>
@@ -210,90 +172,10 @@ export function CreateRoleForm({ orgId, teams }: CreateRoleFormProps) {
             </FormItem>
           )}
         />
-        <div className="space-y-4">
-          <Label>Permissions</Label>
-          {fields.map((fieldItem, index) => (
-            <div key={fieldItem.id} className="grid grid-cols-2 gap-2">
-              <Input
-                placeholder="Resource"
-                {...form.register(`permissions.${index}.resource` as const, {
-                  required: 'Required',
-                })}
-              />
-              <Input
-                placeholder="Action"
-                {...form.register(`permissions.${index}.action` as const, {
-                  required: 'Required',
-                })}
-              />
-              <Select
-                {...form.register(`permissions.${index}.scope` as const, {
-                  required: 'Required',
-                })}
-                onValueChange={(value) =>
-                  form.setValue(`permissions.${index}.scope` as const, value as 'all' | 'own')
-                }
-                value={form.getValues(`permissions.${index}.scope` as const)}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Scope" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="own">Own</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  checked={form.getValues(`permissions.${index}.cascade_down` as const)}
-                  onCheckedChange={(checked) =>
-                    form.setValue(
-                      `permissions.${index}.cascade_down` as const,
-                      Boolean(checked)
-                    )
-                  }
-                  id={`cascade-${index}`}
-                />
-                <label htmlFor={`cascade-${index}`}>Cascade Down</label>
-              </div>
-              <Input
-                placeholder="Target Kind"
-                {...form.register(`permissions.${index}.target_kind` as const)}
-              />
-              <div className="col-span-2 text-right">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => remove(index)}
-                >
-                  Remove
-                </Button>
-              </div>
-            </div>
-          ))}
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() =>
-              append({
-                resource: '',
-                action: '',
-                scope: 'all',
-                cascade_down: false,
-                target_kind: '',
-              })
-            }
-          >
-            Add Permission
-          </Button>
-        </div>
+
         {error && <p className="text-sm text-red-500">{error}</p>}
-        {success && <p className="text-sm text-green-500">{success}</p>}
         <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? 'Creating...' : 'Create Role'}
+          {isLoading ? "Creating..." : "Create Role"}
         </Button>
       </form>
     </Form>
