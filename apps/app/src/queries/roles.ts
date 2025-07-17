@@ -41,8 +41,35 @@ async function getRolesForTeams(
   return data
 }
 
+async function getRoleById(
+  supabase: SupabaseClient<Database>,
+  roleId: string,
+) {
+  const { data, error } = await supabase
+    .from('roles')
+    .select('*')
+    .eq('id', roleId)
+    .single()
+  if (error) throw new Error(error.message)
+  return data
+}
+
+async function getRolePermissions(
+  supabase: SupabaseClient<Database>,
+  roleId: string,
+) {
+  const { data, error } = await supabase
+    .from('role_permissions')
+    .select('resource, action')
+    .eq('role_id', roleId)
+  if (error) throw new Error(error.message)
+  return data || []
+}
+
 export const roles = {
   getAll: getRoles,
   getByScope: getRolesByScope,
   getForTeams: getRolesForTeams,
+  findUnique: getRoleById,
+  getPermissions: getRolePermissions,
 } as const;
