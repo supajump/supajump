@@ -22,10 +22,14 @@ import {
   SelectItem,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 
 interface Permission {
   resource: string
   action: string
+  scope: 'all' | 'own'
+  cascade_down: boolean
+  target_kind: string
 }
 
 interface FormValues {
@@ -50,7 +54,15 @@ export function CreateRoleForm({ orgId, teams }: CreateRoleFormProps) {
       name: '',
       displayName: '',
       description: '',
-      permissions: [{ resource: '', action: '' }],
+      permissions: [
+        {
+          resource: '',
+          action: '',
+          scope: 'all',
+          cascade_down: false,
+          target_kind: '',
+        },
+      ],
     },
   })
   const { fields, append, remove } = useFieldArray({
@@ -93,6 +105,9 @@ export function CreateRoleForm({ orgId, teams }: CreateRoleFormProps) {
         team_id: values.scope === 'team' ? values.teamId : null,
         resource: perm.resource,
         action: perm.action,
+        scope: perm.scope,
+        cascade_down: perm.cascade_down,
+        target_kind: perm.target_kind,
       })
       if (permError) {
         setError(permError.message)
@@ -211,6 +226,42 @@ export function CreateRoleForm({ orgId, teams }: CreateRoleFormProps) {
                   required: 'Required',
                 })}
               />
+              <Select
+                {...form.register(`permissions.${index}.scope` as const, {
+                  required: 'Required',
+                })}
+                onValueChange={(value) =>
+                  form.setValue(`permissions.${index}.scope` as const, value as 'all' | 'own')
+                }
+                value={form.getValues(`permissions.${index}.scope` as const)}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Scope" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="own">Own</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={form.getValues(`permissions.${index}.cascade_down` as const)}
+                  onCheckedChange={(checked) =>
+                    form.setValue(
+                      `permissions.${index}.cascade_down` as const,
+                      Boolean(checked)
+                    )
+                  }
+                  id={`cascade-${index}`}
+                />
+                <label htmlFor={`cascade-${index}`}>Cascade Down</label>
+              </div>
+              <Input
+                placeholder="Target Kind"
+                {...form.register(`permissions.${index}.target_kind` as const)}
+              />
               <div className="col-span-2 text-right">
                 <Button
                   type="button"
@@ -226,7 +277,15 @@ export function CreateRoleForm({ orgId, teams }: CreateRoleFormProps) {
           <Button
             type="button"
             variant="secondary"
-            onClick={() => append({ resource: '', action: '' })}
+            onClick={() =>
+              append({
+                resource: '',
+                action: '',
+                scope: 'all',
+                cascade_down: false,
+                target_kind: '',
+              })
+            }
           >
             Add Permission
           </Button>
