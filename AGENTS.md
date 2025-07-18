@@ -15,7 +15,8 @@ This is a Turborepo monorepo containing a Next.js SaaS starter that integrates S
 ### Next.js App Structure (`apps/app/`)
 - `src/app` – Next.js App Router pages and layouts
 - `src/components` – Shared React components. Primitive UI elements live in `src/components/ui`
-- `src/queries` – Data access helpers grouped under the exported `api` object. Each file (e.g. `posts.ts`, `organizations.ts`) exposes CRUD style functions. `entities.ts` and `query-factory.ts` provide typed helpers for building queries
+- `src/queries` – Data access helpers grouped under the exported `api` object. Each file (e.g. `posts.ts`, `organizations.ts`) exposes CRUD style functions
+- `src/queries/keys.ts` – Tanstack Query cache keys for proper invalidation
 - `src/hooks` – React hooks that usually wrap React Query for fetching data
 - `src/lib` – Miscellaneous utilities including Supabase clients and helpers
 - `src/features` – Feature-based modules (e.g., `posts/` contains all posts-related components, hooks, and queries)
@@ -31,6 +32,110 @@ src/features/posts/
 └── queries/         # Feature-specific queries
     └── posts.ts
 ```
+
+## Data Fetching Pattern with Tanstack Query
+
+The project uses Tanstack Query for data fetching, caching, and state management. Follow these patterns:
+
+### Server Components (RSC) with Prefetching
+In `page.tsx` files, prefetch data on the server and pass it to client components:
+
+```typescript
+import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
+import { getQueryClient } from '@/components/providers/get-query-client'
+import { api } from '@/queries'
+import { postsKeys } from '@/queries/keys'
+
+export default async function Page({ params }) {
+  const { org_id, team_id } = await params
+  const supabase = await createClient()
+  
+  // Prefetch data on server
+  const queryClient = getQueryClient()
+  await queryClient.prefetchQuery({
+    // eslint-disable-next-line @tanstack/query/exhaustive-deps
+    queryKey: postsKeys.list(org_id, team_id),
+    queryFn: () => api.posts.getAll(supabase, org_id, team_id),
+  })
+  
+  return (
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <ClientComponent orgId={org_id} teamId={team_id} />
+    </HydrationBoundary>
+  )
+}
+```
+
+### Client Components with Custom Hooks
+Create custom hooks in `features/[feature]/hooks/`:
+
+```typescript
+// features/posts/hooks/use-posts.ts
+export function usePosts(orgId: string, teamId: string) {
+  const supabase = createClient()
+  
+  return useQuery({
+    // eslint-disable-next-line @tanstack/query/exhaustive-deps
+    queryKey: postsKeys.list(orgId, teamId),
+    queryFn: () => api.posts.getAll(supabase, orgId, teamId),
+  })
+}
+
+// Mutation hook with cache invalidation
+export function useCreatePost(orgId: string, teamId: string) {
+  const queryClient = useQueryClient()
+  const supabase = createClient()
+  
+  return useMutation({
+    mutationFn: (data) => api.posts.create(supabase, data),
+    onSuccess: () => {
+      // Invalidate to trigger refetch
+      queryClient.invalidateQueries({ 
+        queryKey: postsKeys.list(orgId, teamId) 
+      })
+      toast.success('Post created')
+    },
+  })
+}
+```
+
+### Query Keys
+Define query keys in `/src/queries/keys.ts` for consistent cache management:
+
+```typescript
+export const postsKeys = {
+  all: () => ['posts'] as const,
+  list: (orgId: string, teamId: string) => ['posts', orgId, teamId] as const,
+  detail: (postId: string) => ['post', postId] as const,
+}
+```
+
+### Loading States
+Use skeleton components instead of spinners for better perceived performance:
+
+```typescript
+// Create skeleton components that match your UI
+export function TableSkeleton() {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Skeleton key={i} className="h-12 w-full" />
+      ))}
+    </div>
+  )
+}
+
+// Use in components
+if (isLoading) return <TableSkeleton />
+```
+
+### Key Points
+- Always prefetch in server components when possible
+- Use `HydrationBoundary` to pass server state to client
+- Create feature-specific hooks for data fetching
+- Use query keys for proper cache invalidation
+- Use skeleton components for loading states (not spinners)
+- Add `eslint-disable-next-line @tanstack/query/exhaustive-deps` for query keys
 
 
 ## Development notes

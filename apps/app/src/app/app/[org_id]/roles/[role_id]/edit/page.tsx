@@ -9,9 +9,12 @@ import {
 import { RolePermissionsForm } from "@/features/roles/role-permissions-form"
 import { createClient } from "@/lib/supabase/server"
 import { api } from "@/queries"
+import { rolesKeys } from "@/queries/keys"
 import { ChevronLeft } from "lucide-react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { HydrationBoundary, dehydrate } from "@tanstack/react-query"
+import { getQueryClient } from "@/components/providers/get-query-client"
 
 interface PageProps {
   params: Promise<{
@@ -30,13 +33,19 @@ export default async function EditRolePage({ params }: PageProps) {
     notFound()
   }
 
-  // Get existing permissions for this role
-  const permissions = await api.roles.getPermissions(supabase, role_id)
-
   // Get teams for team-scoped roles
   const teams = await api.teams.getAll(supabase, org_id)
 
+  // Prefetch permissions data
+  const queryClient = getQueryClient()
+  await queryClient.prefetchQuery({
+    // eslint-disable-next-line @tanstack/query/exhaustive-deps
+    queryKey: rolesKeys.permissions(role_id),
+    queryFn: () => api.roles.getPermissions(supabase, role_id),
+  })
+
   return (
+    <HydrationBoundary state={dehydrate(queryClient)}>
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center gap-4">
         <Link href={`/app/${org_id}/roles`}>
@@ -96,10 +105,10 @@ export default async function EditRolePage({ params }: PageProps) {
             orgId={org_id}
             scope={role.scope as "organization" | "team"}
             teamId={role.team_id}
-            existingPermissions={permissions}
           />
         </CardContent>
       </Card>
     </div>
+    </HydrationBoundary>
   )
 }
