@@ -24,6 +24,8 @@ export const membersKeys = {
 export const rolesKeys = {
   all: () => ['roles'] as const,
   list: (orgId: string) => ['roles', orgId] as const,
+  detail: (roleId: string) => ['role', roleId] as const,
+  permissions: (roleId: string) => ['role', roleId, 'permissions'] as const,
 } as const;
 
 export const invitationsKeys = {

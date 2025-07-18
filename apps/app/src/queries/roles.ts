@@ -60,10 +60,44 @@ async function getRolePermissions(
 ) {
   const { data, error } = await supabase
     .from('role_permissions')
-    .select('resource, action')
+    .select('resource, action, scope, cascade_down, target_kind')
     .eq('role_id', roleId)
   if (error) throw new Error(error.message)
   return data || []
+}
+
+async function updateRolePermissions(
+  supabase: SupabaseClient<Database>,
+  roleId: string,
+  permissions: Array<{
+    role_id: string
+    org_id: string
+    team_id: string | null
+    resource: string
+    action: string
+    scope: "all" | "own"
+    cascade_down: boolean
+    target_kind: string | null
+  }>
+) {
+  // First, delete all existing permissions for this role
+  const { error: deleteError } = await supabase
+    .from('role_permissions')
+    .delete()
+    .eq('role_id', roleId)
+
+  if (deleteError) throw new Error(deleteError.message)
+
+  // Insert new permissions if any
+  if (permissions.length > 0) {
+    const { error: insertError } = await supabase
+      .from('role_permissions')
+      .insert(permissions)
+
+    if (insertError) throw new Error(insertError.message)
+  }
+
+  return { success: true }
 }
 
 export const roles = {
@@ -72,4 +106,5 @@ export const roles = {
   getForTeams: getRolesForTeams,
   findUnique: getRoleById,
   getPermissions: getRolePermissions,
+  updatePermissions: updateRolePermissions,
 } as const;

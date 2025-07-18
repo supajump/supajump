@@ -31,18 +31,119 @@ supabase db reset  # Reset and reseed local database
 
 ## Architecture & Code Organization
 
-### Data Access Pattern
-All database queries are centralized in `/apps/app/src/queries/index.ts` and exposed via the `api` object:
+### Data Access Pattern with Tanstack Query
 
+All database queries are centralized in `/apps/app/src/queries/index.ts` and exposed via the `api` object. We use Tanstack Query for data fetching, caching, and state management.
+
+#### Server Components (RSC) Pattern with Prefetching:
 ```typescript
-import { api } from "@/queries"
+// In page.tsx (Server Component)
+import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
+import { getQueryClient } from '@/components/providers/get-query-client'
+import { api } from '@/queries'
+import { postsKeys } from '@/queries/keys' // Query keys for cache management
 
-// Use for server components/actions
-const posts = await api.posts.findMany({ teamId })
+export default async function Page({ params }) {
+  const supabase = await createClient()
+  
+  // Prefetch data on the server
+  const queryClient = getQueryClient()
+  await queryClient.prefetchQuery({
+    // eslint-disable-next-line @tanstack/query/exhaustive-deps
+    queryKey: postsKeys.list(orgId, teamId),
+    queryFn: () => api.posts.getAll(supabase, orgId, teamId),
+  })
+  
+  // Wrap client components with HydrationBoundary
+  return (
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <PostsTable orgId={orgId} teamId={teamId} />
+    </HydrationBoundary>
+  )
+}
+```
 
-// Use for client components
-import { useQuery } from "@tanstack/react-query"
-const { data } = useQuery(api.posts.findMany({ teamId }))
+#### Client Components Pattern with Hooks:
+```typescript
+// Create a custom hook in features/[feature]/hooks/
+export function usePosts(orgId: string, teamId: string) {
+  const supabase = createClient()
+  
+  return useQuery({
+    // eslint-disable-next-line @tanstack/query/exhaustive-deps
+    queryKey: postsKeys.list(orgId, teamId),
+    queryFn: () => api.posts.getAll(supabase, orgId, teamId),
+  })
+}
+
+// Use in client component
+function PostsTable({ orgId, teamId }) {
+  const { data: posts, isLoading } = usePosts(orgId, teamId)
+  
+  if (isLoading) return <PostsTableSkeleton />
+  // ... render posts
+}
+```
+
+#### Mutations with Cache Invalidation:
+```typescript
+export function useCreatePost(orgId: string, teamId: string) {
+  const queryClient = useQueryClient()
+  const supabase = createClient()
+  
+  return useMutation({
+    mutationFn: (data) => api.posts.create(supabase, data),
+    onSuccess: () => {
+      // Invalidate and refetch posts list
+      queryClient.invalidateQueries({ 
+        queryKey: postsKeys.list(orgId, teamId) 
+      })
+      toast.success('Post created successfully')
+    },
+    onError: (error) => {
+      toast.error('Failed to create post: ' + error.message)
+    },
+  })
+}
+```
+
+#### Query Keys Management:
+Define query keys in `/apps/app/src/queries/keys.ts`:
+```typescript
+export const postsKeys = {
+  all: () => ['posts'] as const,
+  list: (orgId: string, teamId: string) => ['posts', orgId, teamId] as const,
+  detail: (postId: string) => ['post', postId] as const,
+}
+```
+
+#### Loading States with Skeletons:
+Use skeleton components for loading states instead of spinners:
+```typescript
+// Create a skeleton component matching your UI structure
+export function PostsTableSkeleton() {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead><Skeleton className="h-4 w-20" /></TableHead>
+          {/* ... more headers */}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <TableRow key={i}>
+            <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+            {/* ... more cells */}
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  )
+}
+
+// Use in your component
+if (isLoading) return <PostsTableSkeleton />
 ```
 
 ### Feature-Based Organization
@@ -75,10 +176,13 @@ Example: The posts feature is organized as:
 
 ### Key Patterns
 1. **Server Components First**: Use React Server Components by default, client components only when needed
-2. **Type Safety**: Database types are auto-generated in `apps/app/src/lib/database.types.ts`
-3. **RLS Enforcement**: All database access goes through Supabase RLS policies
-4. **Form Handling**: Use react-hook-form with zod validation
-5. **Error Handling**: Server actions return `{ error: string }` on failure
+2. **Data Fetching**: Use Tanstack Query with server-side prefetching in RSCs and client-side hooks
+3. **Loading States**: Use skeleton components instead of spinners for better UX
+4. **Type Safety**: Database types are auto-generated in `apps/app/src/lib/database.types.ts`
+5. **RLS Enforcement**: All database access goes through Supabase RLS policies
+6. **Form Handling**: Use react-hook-form with zod validation
+7. **Error Handling**: Server actions return `{ error: string }` on failure
+8. **Cache Management**: Use query keys for proper cache invalidation after mutations
 
 ## Development Workflow
 
