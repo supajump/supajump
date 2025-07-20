@@ -33,33 +33,33 @@ import * as z from "zod"
 import { RolePermissionsSkeleton } from "./role-permissions-skeleton"
 
 // Define action types
-type ActionType = "view" | "edit" | "delete" | "create" | "manage" | "invite"
+type ActionType = "view" | "edit" | "delete" | "create"
 
 // Define available resources and their actions
 const PERMISSION_MATRIX = {
   organizations: {
     label: "Organizations",
-    actions: ["view", "edit", "delete", "manage"] as ActionType[],
+    actions: ["view", "edit", "delete"] as ActionType[],
     description: "Manage organization settings and details",
   },
   billing: {
     label: "Billing",
-    actions: ["view", "edit", "manage"] as ActionType[],
+    actions: ["view", "edit"] as ActionType[],
     description: "Access and manage billing information",
   },
   members: {
     label: "Members",
-    actions: ["view", "edit", "delete", "invite"] as ActionType[],
+    actions: ["view", "edit", "delete"] as ActionType[],
     description: "Manage organization members",
   },
   teams: {
     label: "Teams",
-    actions: ["view", "edit", "delete", "create", "manage"] as ActionType[],
+    actions: ["view", "edit", "delete", "create"] as ActionType[],
     description: "Manage teams within the organization",
   },
   team_members: {
     label: "Team Members",
-    actions: ["view", "edit", "delete", "invite"] as ActionType[],
+    actions: ["view", "edit", "delete"] as ActionType[],
     description: "Manage team members",
   },
   posts: {
@@ -74,8 +74,6 @@ const ACTION_LABELS = {
   edit: "Edit",
   delete: "Delete",
   create: "Create",
-  manage: "Manage",
-  invite: "Invite",
 } as const
 
 interface Permission {
@@ -496,20 +494,13 @@ export function RolePermissionsForm({
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[200px]">Resource</TableHead>
-                {(
-                  [
-                    "view",
-                    "create",
-                    "edit",
-                    "delete",
-                    "manage",
-                    "invite",
-                  ] as ActionType[]
-                ).map((action) => (
-                  <TableHead key={action} className="text-center w-[100px]">
-                    {ACTION_LABELS[action]}
-                  </TableHead>
-                ))}
+                {(["view", "create", "edit", "delete"] as ActionType[]).map(
+                  (action) => (
+                    <TableHead key={action} className="text-center w-[100px]">
+                      {ACTION_LABELS[action]}
+                    </TableHead>
+                  ),
+                )}
                 <TableHead className="w-[80px] text-center">Options</TableHead>
               </TableRow>
             </TableHeader>
@@ -529,31 +520,24 @@ export function RolePermissionsForm({
                         </div>
                       </div>
                     </TableCell>
-                    {(
-                      [
-                        "view",
-                        "create",
-                        "edit",
-                        "delete",
-                        "manage",
-                        "invite",
-                      ] as ActionType[]
-                    ).map((action) => (
-                      <TableCell key={action} className="text-center">
-                        {config.actions.includes(action) ? (
-                          <PermissionCheckbox
-                            resource={resource}
-                            action={action}
-                            checked={isPermissionEnabled(resource, action)}
-                            config={getPermissionConfig(resource, action)}
-                            onChange={handlePermissionChange}
-                            onAdvancedChange={handleAdvancedChange}
-                          />
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                    ))}
+                    {(["view", "create", "edit", "delete"] as ActionType[]).map(
+                      (action) => (
+                        <TableCell key={action} className="text-center">
+                          {config.actions.includes(action) ? (
+                            <PermissionCheckbox
+                              resource={resource}
+                              action={action}
+                              checked={isPermissionEnabled(resource, action)}
+                              config={getPermissionConfig(resource, action)}
+                              onChange={handlePermissionChange}
+                              onAdvancedChange={handleAdvancedChange}
+                            />
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                      ),
+                    )}
                     <TableCell className="text-center">
                       {hasAdvancedOptions && (
                         <AdvancedOptionsPopover
