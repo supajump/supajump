@@ -10,7 +10,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Switch } from "@/components/ui/switch"
 import {
   Table,
@@ -241,35 +240,6 @@ function AdvancedOptionsPopover({
                   <Label className="text-sm font-medium">
                     {ACTION_LABELS[action as keyof typeof ACTION_LABELS]}
                   </Label>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs">Scope</Label>
-                  <RadioGroup
-                    value={config.scope}
-                    onValueChange={(value: string) =>
-                      onAdvancedChange(resource, action, "scope", value)
-                    }
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="all" id={`${key}-all`} />
-                      <label
-                        htmlFor={`${key}-all`}
-                        className="text-sm cursor-pointer"
-                      >
-                        All records
-                      </label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="own" id={`${key}-own`} />
-                      <label
-                        htmlFor={`${key}-own`}
-                        className="text-sm cursor-pointer"
-                      >
-                        Own records only
-                      </label>
-                    </div>
-                  </RadioGroup>
                 </div>
 
                 {scope === "organization" && (
