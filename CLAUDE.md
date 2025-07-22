@@ -234,7 +234,39 @@ Example: The posts feature is organized as:
   ```
 
 ### RLS Policy Template
-For new tables following the multi-tenant pattern (with org_id, team_id, owner_id), use the standard RLS template from `/supabase/schemas/multi_tenant_rbac.sql` (sections 1416-1517)
+For new tables following the multi-tenant pattern (with org_id, team_id, owner_id), use the simplified RLS template pattern with the `has_permission` helper function:
+
+```sql
+-- SELECT policy
+CREATE POLICY "rls_<table_name>_select" ON <table_name> 
+FOR SELECT TO authenticated USING (
+  supajump.has_permission('<table_name>', 'view', org_id, team_id, owner_id)
+);
+
+-- INSERT policy
+CREATE POLICY "rls_<table_name>_insert" ON <table_name> 
+FOR INSERT TO authenticated WITH CHECK (
+  supajump.has_permission('<table_name>', 'create', org_id, team_id, owner_id)
+);
+
+-- UPDATE policy
+CREATE POLICY "rls_<table_name>_update" ON <table_name> 
+FOR UPDATE TO authenticated WITH CHECK (
+  supajump.has_permission('<table_name>', 'edit', org_id, team_id, owner_id)
+);
+
+-- DELETE policy
+CREATE POLICY "rls_<table_name>_delete" ON <table_name> 
+FOR DELETE TO authenticated WITH CHECK (
+  supajump.has_permission('<table_name>', 'delete', org_id, team_id, owner_id)
+);
+```
+
+The `has_permission` function handles:
+- Organization/team owner bypass checks
+- Direct ownership checks (owner_id)
+- Permission-based access via roles
+- Proper scope handling (all/own)
 
 ## Database Schema
 

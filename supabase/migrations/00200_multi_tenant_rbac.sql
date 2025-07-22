@@ -302,7 +302,9 @@ from
   inherited;
 
 -- Grant access to the user_permissions_view
-grant select on supajump.user_permissions_view to authenticated;
+grant
+select
+  on supajump.user_permissions_view to authenticated;
 
 /*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 5. INDEXES FOR OPTIMAL PERFORMANCE
@@ -503,6 +505,53 @@ as $$
     AND  resource = _resource
     AND  action   = _action;
 $$;
+
+-- Helper function to determine if a user has a permission for a resource/action for use in RLS
+CREATE
+OR REPLACE FUNCTION supajump.has_permission (
+  _resource text,
+  _action text,
+  _org_id uuid,
+  _team_id uuid DEFAULT NULL,
+  _owner_id uuid DEFAULT NULL
+) RETURNS boolean LANGUAGE sql STABLE PARALLEL SAFE COST 1 AS $$
+  SELECT
+    -- Fast path 1: Owner bypass (primary key lookups)
+    EXISTS (
+      SELECT 1 FROM organizations 
+      WHERE id = _org_id AND primary_owner_user_id = auth.uid()
+    )
+    OR (
+      _team_id IS NOT NULL 
+      AND EXISTS (
+        SELECT 1 FROM teams 
+        WHERE id = _team_id AND primary_owner_user_id = auth.uid()
+      )
+    )
+    OR
+    -- Fast path 2: Direct ownership (if applicable)
+    (_owner_id IS NOT NULL AND _owner_id = auth.uid())
+    OR
+    -- Permission-based access
+    EXISTS (
+      SELECT 1
+      FROM supajump.user_permissions_view p
+      WHERE p.user_id = auth.uid()
+        AND p.resource = _resource
+        AND p.action = _action
+        AND (
+          p.group_id = _org_id
+          OR (_team_id IS NOT NULL AND p.group_id = _team_id)
+        )
+        AND (
+          p.scope = 'all'
+          OR (p.scope = 'own' AND _owner_id = auth.uid())
+        )
+    );
+$$;
+
+grant
+execute on function supajump.has_permission (text, text, uuid, uuid, uuid) TO authenticated;
 
 /*───────────────────────────────────────────────────────────────┐
 │  7.A FAST RPC HELPERS – NO HEAVY JOINS                            │
@@ -1275,7 +1324,7 @@ select
 create policy "Users can view org memberships for their orgs" on public.org_memberships for
 select
   to authenticated using (
-    user_id = auth.uid()  -- Users can see their own memberships
+    user_id = auth.uid () -- Users can see their own memberships
     or org_id in (
       select
         id
@@ -1283,11 +1332,11 @@ select
         organizations
       where
         primary_owner_user_id = auth.uid ()
-    )  -- Org owners can see all members
+    ) -- Org owners can see all members
     or org_id in (
       select
         public.get_organizations_for_current_user ()
-    )  -- Users can see members in orgs they belong to
+    ) -- Users can see members in orgs they belong to
   );
 
 -- Teams policies
@@ -1303,226 +1352,373 @@ select
 
 -- Team memberships policies
 create policy "Users can view team memberships for their teams" on public.team_memberships for
-select to authenticated using (
-  user_id = auth.uid()  -- Users can see their own memberships
-  or team_id in (
-    select id from teams where primary_owner_user_id = auth.uid()
-  )  -- Team owners can see all members
-  or team_id in (
-    select
-      public.get_teams_for_current_user ()
-  )  -- Users can see members in teams they belong to
-);
+select
+  to authenticated using (
+    user_id = auth.uid () -- Users can see their own memberships
+    or team_id in (
+      select
+        id
+      from
+        teams
+      where
+        primary_owner_user_id = auth.uid ()
+    ) -- Team owners can see all members
+    or team_id in (
+      select
+        public.get_teams_for_current_user ()
+    ) -- Users can see members in teams they belong to
+  );
 
 -- Org member roles policies
 create policy "Users can view org member roles for their orgs" on public.org_member_roles for
-select to authenticated using (
-  org_id in (
-    select org_id from org_memberships where user_id = auth.uid()
-  )  -- Users can see roles in orgs they belong to
-  or org_id in (
-    select id from organizations where primary_owner_user_id = auth.uid()
-  )  -- Org owners can see all roles
-);
+select
+  to authenticated using (
+    org_id in (
+      select
+        org_id
+      from
+        org_memberships
+      where
+        user_id = auth.uid ()
+    ) -- Users can see roles in orgs they belong to
+    or org_id in (
+      select
+        id
+      from
+        organizations
+      where
+        primary_owner_user_id = auth.uid ()
+    ) -- Org owners can see all roles
+  );
 
 -- Team member roles policies
 create policy "Users can view team member roles for their teams" on public.team_member_roles for
-select to authenticated using (
-  team_id in (
-    select team_id from team_memberships where user_id = auth.uid()
-  )  -- Users can see roles in teams they belong to
-  or team_id in (
-    select id from teams where primary_owner_user_id = auth.uid()
-  )  -- Team owners can see all roles
-);
+select
+  to authenticated using (
+    team_id in (
+      select
+        team_id
+      from
+        team_memberships
+      where
+        user_id = auth.uid ()
+    ) -- Users can see roles in teams they belong to
+    or team_id in (
+      select
+        id
+      from
+        teams
+      where
+        primary_owner_user_id = auth.uid ()
+    ) -- Team owners can see all roles
+  );
 
 -- Groups policies
 create policy "Users can view groups they belong to" on public.groups for
-select to authenticated using (
-  id in (
-    select org_id from org_memberships where user_id = auth.uid()
-  )  -- Users can see orgs they belong to
-  or id in (
-    select team_id from team_memberships where user_id = auth.uid()
-  )  -- Users can see teams they belong to
-  or primary_owner_user_id = auth.uid()  -- Owners can see their groups
-);
+select
+  to authenticated using (
+    id in (
+      select
+        org_id
+      from
+        org_memberships
+      where
+        user_id = auth.uid ()
+    ) -- Users can see orgs they belong to
+    or id in (
+      select
+        team_id
+      from
+        team_memberships
+      where
+        user_id = auth.uid ()
+    ) -- Users can see teams they belong to
+    or primary_owner_user_id = auth.uid () -- Owners can see their groups
+  );
 
 -- Simple RLS policies for roles (no circular dependencies)
 create policy "roles_select_simple" on public.roles for
-  select to authenticated using (
+select
+  to authenticated using (
     -- Organization primary owner bypass
     exists (
-      select 1 from organizations o
-      where o.id = roles.org_id
-        and o.primary_owner_user_id = auth.uid()
+      select
+        1
+      from
+        organizations o
+      where
+        o.id = roles.org_id
+        and o.primary_owner_user_id = auth.uid ()
     )
     -- Team primary owner bypass (if team-scoped)
     or exists (
-      select 1 from teams t
-      where t.id = roles.team_id
-        and t.primary_owner_user_id = auth.uid()
+      select
+        1
+      from
+        teams t
+      where
+        t.id = roles.team_id
+        and t.primary_owner_user_id = auth.uid ()
     )
     -- Users can see roles in orgs they belong to
     or exists (
-      select 1 from org_memberships om
-      where om.user_id = auth.uid()
+      select
+        1
+      from
+        org_memberships om
+      where
+        om.user_id = auth.uid ()
         and om.org_id = roles.org_id
     )
     -- Users can see roles in teams they belong to (if team-scoped)
-    or (roles.team_id is not null and exists (
-      select 1 from team_memberships tm
-      where tm.user_id = auth.uid()
-        and tm.team_id = roles.team_id
-    ))
+    or (
+      roles.team_id is not null
+      and exists (
+        select
+          1
+        from
+          team_memberships tm
+        where
+          tm.user_id = auth.uid ()
+          and tm.team_id = roles.team_id
+      )
+    )
   );
 
 create policy "roles_insert_simple" on public.roles for insert to authenticated
-  with check (
+with
+  check (
     -- Organization primary owner can create org roles
     exists (
-      select 1 from organizations o
-      where o.id = org_id
-        and o.primary_owner_user_id = auth.uid()
+      select
+        1
+      from
+        organizations o
+      where
+        o.id = org_id
+        and o.primary_owner_user_id = auth.uid ()
     )
     -- Team primary owner can create team roles
     or exists (
-      select 1 from teams t
-      where t.id = team_id
-        and t.primary_owner_user_id = auth.uid()
+      select
+        1
+      from
+        teams t
+      where
+        t.id = team_id
+        and t.primary_owner_user_id = auth.uid ()
     )
   );
 
 create policy "roles_update_simple" on public.roles for
-  update to authenticated using (
-    -- Organization primary owner can edit org roles
-    exists (
-      select 1 from organizations o
-      where o.id = roles.org_id
-        and o.primary_owner_user_id = auth.uid()
-    )
-    -- Team primary owner can edit team roles
-    or exists (
-      select 1 from teams t
-      where t.id = roles.team_id
-        and t.primary_owner_user_id = auth.uid()
-    )
+update to authenticated using (
+  -- Organization primary owner can edit org roles
+  exists (
+    select
+      1
+    from
+      organizations o
+    where
+      o.id = roles.org_id
+      and o.primary_owner_user_id = auth.uid ()
   )
-  with check (
+  -- Team primary owner can edit team roles
+  or exists (
+    select
+      1
+    from
+      teams t
+    where
+      t.id = roles.team_id
+      and t.primary_owner_user_id = auth.uid ()
+  )
+)
+with
+  check (
     -- Same check for the updated values
     exists (
-      select 1 from organizations o
-      where o.id = org_id
-        and o.primary_owner_user_id = auth.uid()
+      select
+        1
+      from
+        organizations o
+      where
+        o.id = org_id
+        and o.primary_owner_user_id = auth.uid ()
     )
     or exists (
-      select 1 from teams t
-      where t.id = team_id
-        and t.primary_owner_user_id = auth.uid()
+      select
+        1
+      from
+        teams t
+      where
+        t.id = team_id
+        and t.primary_owner_user_id = auth.uid ()
     )
   );
 
 create policy "roles_delete_simple" on public.roles for delete to authenticated using (
   -- Organization primary owner can delete org roles
   exists (
-    select 1 from organizations o
-    where o.id = roles.org_id
-      and o.primary_owner_user_id = auth.uid()
+    select
+      1
+    from
+      organizations o
+    where
+      o.id = roles.org_id
+      and o.primary_owner_user_id = auth.uid ()
   )
   -- Team primary owner can delete team roles
   or exists (
-    select 1 from teams t
-    where t.id = roles.team_id
-      and t.primary_owner_user_id = auth.uid()
+    select
+      1
+    from
+      teams t
+    where
+      t.id = roles.team_id
+      and t.primary_owner_user_id = auth.uid ()
   )
 );
 
 -- Simple RLS policies for role_permissions (no circular dependencies)
 create policy "role_permissions_select_simple" on public.role_permissions for
-  select to authenticated using (
+select
+  to authenticated using (
     -- Organization primary owner bypass
     exists (
-      select 1 from organizations o
-      where o.id = role_permissions.org_id
-        and o.primary_owner_user_id = auth.uid()
+      select
+        1
+      from
+        organizations o
+      where
+        o.id = role_permissions.org_id
+        and o.primary_owner_user_id = auth.uid ()
     )
     -- Team primary owner bypass (if team-scoped)
     or exists (
-      select 1 from teams t
-      where t.id = role_permissions.team_id
-        and t.primary_owner_user_id = auth.uid()
+      select
+        1
+      from
+        teams t
+      where
+        t.id = role_permissions.team_id
+        and t.primary_owner_user_id = auth.uid ()
     )
     -- Users can see role permissions in orgs they belong to
     or exists (
-      select 1 from org_memberships om
-      where om.user_id = auth.uid()
+      select
+        1
+      from
+        org_memberships om
+      where
+        om.user_id = auth.uid ()
         and om.org_id = role_permissions.org_id
     )
     -- Users can see role permissions in teams they belong to (if team-scoped)
-    or (role_permissions.team_id is not null and exists (
-      select 1 from team_memberships tm
-      where tm.user_id = auth.uid()
-        and tm.team_id = role_permissions.team_id
-    ))
+    or (
+      role_permissions.team_id is not null
+      and exists (
+        select
+          1
+        from
+          team_memberships tm
+        where
+          tm.user_id = auth.uid ()
+          and tm.team_id = role_permissions.team_id
+      )
+    )
   );
 
 create policy "role_permissions_insert_simple" on public.role_permissions for insert to authenticated
-  with check (
+with
+  check (
     -- Organization primary owner can create org role permissions
     exists (
-      select 1 from organizations o
-      where o.id = org_id
-        and o.primary_owner_user_id = auth.uid()
+      select
+        1
+      from
+        organizations o
+      where
+        o.id = org_id
+        and o.primary_owner_user_id = auth.uid ()
     )
     -- Team primary owner can create team role permissions
     or exists (
-      select 1 from teams t
-      where t.id = team_id
-        and t.primary_owner_user_id = auth.uid()
+      select
+        1
+      from
+        teams t
+      where
+        t.id = team_id
+        and t.primary_owner_user_id = auth.uid ()
     )
   );
 
 create policy "role_permissions_update_simple" on public.role_permissions for
-  update to authenticated using (
-    -- Organization primary owner can edit org role permissions
-    exists (
-      select 1 from organizations o
-      where o.id = role_permissions.org_id
-        and o.primary_owner_user_id = auth.uid()
-    )
-    -- Team primary owner can edit team role permissions
-    or exists (
-      select 1 from teams t
-      where t.id = role_permissions.team_id
-        and t.primary_owner_user_id = auth.uid()
-    )
+update to authenticated using (
+  -- Organization primary owner can edit org role permissions
+  exists (
+    select
+      1
+    from
+      organizations o
+    where
+      o.id = role_permissions.org_id
+      and o.primary_owner_user_id = auth.uid ()
   )
-  with check (
+  -- Team primary owner can edit team role permissions
+  or exists (
+    select
+      1
+    from
+      teams t
+    where
+      t.id = role_permissions.team_id
+      and t.primary_owner_user_id = auth.uid ()
+  )
+)
+with
+  check (
     -- Same check for the updated values
     exists (
-      select 1 from organizations o
-      where o.id = org_id
-        and o.primary_owner_user_id = auth.uid()
+      select
+        1
+      from
+        organizations o
+      where
+        o.id = org_id
+        and o.primary_owner_user_id = auth.uid ()
     )
     or exists (
-      select 1 from teams t
-      where t.id = team_id
-        and t.primary_owner_user_id = auth.uid()
+      select
+        1
+      from
+        teams t
+      where
+        t.id = team_id
+        and t.primary_owner_user_id = auth.uid ()
     )
   );
 
 create policy "role_permissions_delete_simple" on public.role_permissions for delete to authenticated using (
   -- Organization primary owner can delete org role permissions
   exists (
-    select 1 from organizations o
-    where o.id = role_permissions.org_id
-      and o.primary_owner_user_id = auth.uid()
+    select
+      1
+    from
+      organizations o
+    where
+      o.id = role_permissions.org_id
+      and o.primary_owner_user_id = auth.uid ()
   )
   -- Team primary owner can delete team role permissions
   or exists (
-    select 1 from teams t
-    where t.id = role_permissions.team_id
-      and t.primary_owner_user_id = auth.uid()
+    select
+      1
+    from
+      teams t
+    where
+      t.id = role_permissions.team_id
+      and t.primary_owner_user_id = auth.uid ()
   )
 );
 
@@ -1535,99 +1731,31 @@ the multi-tenant pattern with org_id, team_id, and owner_id columns.
 -- Template for SELECT policies
 -- Replace <TABLE_NAME> with your actual table name
 /*
-create policy "rls_select_<TABLE_NAME>" on <TABLE_NAME> for select to authenticated using (
-exists (
-select 1
-from supajump.user_permissions_view up
-where up.user_id = auth.uid()
-and up.group_id = <TABLE_NAME>.org_id
-and up.resource = '<TABLE_NAME>'
-and up.action = 'view'
-and (
-up.scope = 'all'
-or (up.scope = 'own' and <TABLE_NAME>.owner_id = auth.uid())
-)
-)
--- Team-level permissions (if table has team_id)
-or exists (
-select 1
-from supajump.user_permissions_view up
-where up.user_id = auth.uid()
-and up.group_id = <TABLE_NAME>.team_id
-and up.resource = '<TABLE_NAME>'
-and up.action = 'view'
-and (
-up.scope = 'all'
-or (up.scope = 'own' and <TABLE_NAME>.owner_id = auth.uid())
-)
-)
--- Owner bypass
-or exists (
-select 1
-from organizations o
-where o.id = <TABLE_NAME>.org_id
-and o.primary_owner_user_id = auth.uid()
-)
-or (
-<TABLE_NAME>.team_id is not null
-and exists (
-select 1
-from teams t
-where t.id = <TABLE_NAME>.team_id
-and t.primary_owner_user_id = auth.uid()
-)
-)
+create policy rls_<TABLE_NAME>_select on <TABLE_NAME> for select to authenticated using (
+supajump.has_permission('<TABLE_NAME>', 'view', org_id, team_id, owner_id)
 );
  */
 -- Template for INSERT policies  
 -- Replace <TABLE_NAME> with your actual table name
 /*
 create policy "rls_insert_<TABLE_NAME>" on <TABLE_NAME> for insert to authenticated with check (
-exists (
-select 1
-from supajump.user_permissions_view up
-where up.user_id = auth.uid()
-and up.group_id = NEW.org_id
-and up.resource = '<TABLE_NAME>'
-and up.action = 'create'
-and (
-up.scope = 'all'
-or (up.scope = 'own' and NEW.owner_id = auth.uid())
-)
-)
--- Team-level permissions (if table has team_id)
-or exists (
-select 1
-from supajump.user_permissions_view up
-where up.user_id = auth.uid()
-and up.group_id = NEW.team_id
-and up.resource = '<TABLE_NAME>'
-and up.action = 'create'
-and (
-up.scope = 'all'
-or (up.scope = 'own' and NEW.owner_id = auth.uid())
-)
-)
--- Owner bypass
-or exists (
-select 1
-from organizations o
-where o.id = NEW.org_id
-and o.primary_owner_user_id = auth.uid()
-)
-or (
-NEW.team_id is not null
-and exists (
-select 1
-from teams t
-where t.id = NEW.team_id
-and t.primary_owner_user_id = auth.uid()
-)
-)
+supajump.has_permission('<TABLE_NAME>', 'create', org_id, team_id, owner_id)
 );
  */
--- Similar templates exist for UPDATE and DELETE policies
--- Follow the same pattern, checking permissions for the specific action type
+-- Template for UPDATE policies
+-- Replace <TABLE_NAME> with your actual table name
+/*
+create policy "rls_update_<TABLE_NAME>" on <TABLE_NAME> for update to authenticated with check (
+supajump.has_permission('<TABLE_NAME>', 'edit', org_id, team_id, owner_id)
+);
+ */
+-- Template for DELETE policies
+-- Replace <TABLE_NAME> with your actual table name
+/*
+create policy "rls_delete_<TABLE_NAME>" on <TABLE_NAME> for delete to authenticated with check (
+supajump.has_permission('<TABLE_NAME>', 'delete', org_id, team_id, owner_id)
+);
+ */
 /*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 END OF MULTI-TENANT RBAC SCHEMA
 

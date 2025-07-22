@@ -192,3 +192,68 @@ The CLI uses:
 - `commander` for argument parsing
 - `chalk` for terminal colors
 - `execa` for running shell commands
+
+## Database Patterns
+
+### Multi-Tenant Data Model
+The application implements a hierarchical multi-tenant structure:
+- **Organizations**: Top-level tenant containers
+- **Teams**: Workspaces within organizations  
+- **Users**: Can belong to multiple organizations and teams
+- **Roles & Permissions**: Dynamic RBAC system with flexible permissions
+
+### Row Level Security (RLS) Policies
+For tables following the multi-tenant pattern (with `org_id`, `team_id`, `owner_id` columns), use the simplified RLS pattern:
+
+```sql
+-- Replace <table_name> with your actual table name
+
+-- SELECT policy
+CREATE POLICY "rls_<table_name>_select" ON <table_name> 
+FOR SELECT TO authenticated USING (
+  supajump.has_permission('<table_name>', 'view', org_id, team_id, owner_id)
+);
+
+-- INSERT policy  
+CREATE POLICY "rls_<table_name>_insert" ON <table_name>
+FOR INSERT TO authenticated WITH CHECK (
+  supajump.has_permission('<table_name>', 'create', org_id, team_id, owner_id)
+);
+
+-- UPDATE policy
+CREATE POLICY "rls_<table_name>_update" ON <table_name>
+FOR UPDATE TO authenticated WITH CHECK (
+  supajump.has_permission('<table_name>', 'edit', org_id, team_id, owner_id)
+);
+
+-- DELETE policy
+CREATE POLICY "rls_<table_name>_delete" ON <table_name>
+FOR DELETE TO authenticated WITH CHECK (
+  supajump.has_permission('<table_name>', 'delete', org_id, team_id, owner_id)
+);
+```
+
+The `has_permission` helper function automatically handles:
+- Organization and team owner bypass checks
+- Direct ownership checks (when `owner_id` matches the current user)
+- Role-based permission checks through the `user_permissions_view`
+- Permission scope handling (`all` vs `own`)
+
+### Permission Checks in Application Code
+Use RPC functions to check permissions in your UI:
+
+```typescript
+// Check org-level permission
+const canEdit = await supabase.rpc('has_org_permission', {
+  _org_id: orgId,
+  _resource: 'posts',
+  _action: 'edit'
+})
+
+// Check team-level permission  
+const canDelete = await supabase.rpc('has_team_permission', {
+  _team_id: teamId,
+  _resource: 'posts', 
+  _action: 'delete'
+})
+```
