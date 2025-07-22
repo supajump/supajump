@@ -1,0 +1,67 @@
+{
+  "name": "rich-editor",
+  "version": "1.0.0",
+  "description": "Feature-rich text editor with AI assistance, mentions, and media support",
+  "author": "Supajump Team",
+  "license": "MIT",
+  "tags": ["editor", "wysiwyg", "tiptap", "ai"],
+  "files": {
+    "components/rich-editor.tsx": "src/features/rich-editor/components/rich-editor.tsx",
+    "components/editor-toolbar.tsx": "src/features/rich-editor/components/editor-toolbar.tsx",
+    "components/mention-list.tsx": "src/features/rich-editor/components/mention-list.tsx",
+    "hooks/use-editor.ts": "src/features/rich-editor/hooks/use-editor.ts",
+    "hooks/use-mentions.ts": "src/features/rich-editor/hooks/use-mentions.ts",
+    "queries/editor.ts": "src/queries/plugins/rich-editor.ts",
+    "lib/extensions.ts": "src/features/rich-editor/lib/extensions.ts",
+    "lib/ai-commands.ts": "src/features/rich-editor/lib/ai-commands.ts"
+  },
+  "dependencies": {
+    "npm": {
+      "@tiptap/react": "^2.1.0",
+      "@tiptap/starter-kit": "^2.1.0",
+      "@tiptap/extension-mention": "^2.1.0",
+      "@tiptap/extension-placeholder": "^2.1.0",
+      "@tiptap/extension-bubble-menu": "^2.1.0"
+    },
+    "shadcn": [
+      "button",
+      "dropdown-menu",
+      "separator",
+      "tooltip",
+      "popover"
+    ]
+  },
+  "migrations": [
+    {
+      "version": "001",
+      "file": "migrations/001_add_content_columns.sql",
+      "description": "Add rich_content and mentions columns to posts table"
+    }
+  ],
+  "config": {
+    "envVars": [
+      {
+        "name": "OPENAI_API_KEY",
+        "required": false,
+        "description": "API key for AI writing assistance features"
+      }
+    ],
+    "permissions": ["posts.edit", "posts.create"],
+    "settings": {
+      "enableAI": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable AI writing assistance"
+      },
+      "enableMentions": {
+        "type": "boolean", 
+        "default": true,
+        "description": "Enable @mentions functionality"
+      }
+    }
+  },
+  "compatibility": {
+    "supajump": ">=1.0.0",
+    "node": ">=18.0.0"
+  }
+}
