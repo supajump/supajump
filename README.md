@@ -32,11 +32,11 @@ This is a [Turborepo](https://turbo.build/repo) monorepo, allowing you to scale 
 ### Using the CLI (Recommended)
 
 ```bash
-npx create-supajump-app my-app
+npx @supajump/create-app my-app
 # or
-pnpm create supajump-app my-app
+pnpm create @supajump/create-app my-app
 # or
-yarn create supajump-app my-app
+yarn create @supajump/create-app my-app
 ```
 
 The CLI will:

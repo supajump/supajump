@@ -1,5 +1,5 @@
 {
-  "name": "create-supajump-app",
+  "name": "@supajump/create-app",
   "version": "0.2.0",
   "description": "Create a new Supajump app - Multi-tenant SaaS starter with Next.js and Supabase",
   "type": "module",
@@ -24,8 +24,21 @@
     "template",
     "multi-tenant"
   ],
-  "author": "",
+  "author": "Supajump",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/supajump/supajump.git",
+    "directory": "packages/create-supajump-app"
+  },
+  "bugs": {
+    "url": "https://github.com/supajump/supajump/issues"
+  },
+  "homepage": "https://github.com/supajump/supajump#readme",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "dependencies": {
     "@clack/prompts": "^0.8.2",
     "chalk": "^5.3.0",
