@@ -30,95 +30,37 @@ const getRunCommand = (pm: PackageManager, script: string): string => {
   return pm === "npm" ? `npm run ${script}` : `${pm} ${script}`
 }
 
-async function copyTemplate(projectPath: string) {
-  const templatePath = path.join(__dirname, "..", "..", "..")
+async function cloneTemplate(projectPath: string) {
+  const projectName = path.basename(projectPath)
   
-  // Directories to copy
-  const dirsToInclude = [
-    "apps",
-    "packages", 
-    "supabase"
-  ]
+  // Clone from GitHub
+  await execa("git", ["clone", "https://github.com/supajump/supajump.git", projectPath])
   
-  // Files to copy from root
-  const filesToInclude = [
-    "turbo.json",
-    "pnpm-workspace.yaml",
-    ".gitignore",
-    "README.md",
-    "CLAUDE.md",
-    "AGENTS.md"
-  ]
+  // Remove the .git directory to start fresh
+  const gitPath = path.join(projectPath, ".git")
+  await fs.remove(gitPath)
   
-  // Create project directory
-  await fs.ensureDir(projectPath)
-  
-  // Copy directories
-  for (const dir of dirsToInclude) {
-    const srcPath = path.join(templatePath, dir)
-    const destPath = path.join(projectPath, dir)
-    
-    if (await fs.pathExists(srcPath)) {
-      await fs.copy(srcPath, destPath, {
-        filter: (src) => {
-          // Skip node_modules, .next, .turbo, and the CLI package itself
-          const relativePath = path.relative(templatePath, src)
-          return !relativePath.includes("node_modules") &&
-                 !relativePath.includes(".next") &&
-                 !relativePath.includes(".turbo") &&
-                 !relativePath.includes("create-supajump-app")
-        }
-      })
-    }
+  // Remove the CLI package directory since users don't need it
+  const cliPath = path.join(projectPath, "packages", "create-supajump-app")
+  if (await fs.pathExists(cliPath)) {
+    await fs.remove(cliPath)
   }
   
-  // Copy root files
-  for (const file of filesToInclude) {
-    const srcPath = path.join(templatePath, file)
-    const destPath = path.join(projectPath, file)
-    
-    if (await fs.pathExists(srcPath)) {
-      await fs.copy(srcPath, destPath)
-    }
+  // Update root package.json
+  const rootPackageJsonPath = path.join(projectPath, "package.json")
+  if (await fs.pathExists(rootPackageJsonPath)) {
+    const rootPackageJson = await fs.readJson(rootPackageJsonPath)
+    rootPackageJson.name = projectName
+    rootPackageJson.version = "0.1.0"
+    await fs.writeJson(rootPackageJsonPath, rootPackageJson, { spaces: 2 })
   }
-  
-  // Create root package.json
-  const rootPackageJson = {
-    name: path.basename(projectPath),
-    version: "0.1.0",
-    private: true,
-    description: "Multi-tenant SaaS application built with Supajump",
-    scripts: {
-      build: "turbo build",
-      dev: "turbo dev",
-      lint: "turbo lint",
-      format: "prettier --write \"**/*.{ts,tsx,md}\"",
-      "db:gen:types": "supabase gen types typescript --local > apps/app/src/lib/database.types.ts"
-    },
-    devDependencies: {
-      prettier: "^3.4.2",
-      turbo: "^2.3.3"
-    },
-    packageManager: "pnpm@9.15.1",
-    engines: {
-      node: ">=18"
-    }
-  }
-  
-  await fs.writeJson(path.join(projectPath, "package.json"), rootPackageJson, { spaces: 2 })
   
   // Update app package.json name
   const appPackageJsonPath = path.join(projectPath, "apps", "app", "package.json")
   if (await fs.pathExists(appPackageJsonPath)) {
     const appPackageJson = await fs.readJson(appPackageJsonPath)
-    appPackageJson.name = `@${path.basename(projectPath)}/app`
+    appPackageJson.name = `@${projectName}/app`
     await fs.writeJson(appPackageJsonPath, appPackageJson, { spaces: 2 })
-  }
-  
-  // Clean up any .git directory
-  const gitPath = path.join(projectPath, ".git")
-  if (await fs.pathExists(gitPath)) {
-    await fs.remove(gitPath)
   }
 }
 
@@ -157,7 +99,7 @@ async function main() {
   program
     .name("create-supajump-app")
     .description("Create a new Supajump application")
-    .version("0.1.0")
+    .version("0.3.0")
     .argument("[project-name]", "Name of the project")
     .parse()
 
@@ -245,8 +187,8 @@ async function main() {
   setupSpinner.start("Creating your project...")
 
   try {
-    // Copy template
-    await copyTemplate(projectPath)
+    // Clone template from GitHub
+    await cloneTemplate(projectPath)
     setupSpinner.stop("Project files created")
 
     // Create env files
