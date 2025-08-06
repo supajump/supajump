@@ -7,6 +7,7 @@ import { execa } from "execa"
 import fs from "fs-extra"
 import path from "path"
 import { fileURLToPath } from "url"
+import degit from "degit"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -30,41 +31,75 @@ const getRunCommand = (pm: PackageManager, script: string): string => {
   return pm === "npm" ? `npm run ${script}` : `${pm} ${script}`
 }
 
-async function cloneTemplate(projectPath: string) {
+async function cloneTemplate(projectPath: string, useTurborepo: boolean) {
   const projectName = path.basename(projectPath)
   
-  // Clone from GitHub
-  await execa("git", ["clone", "https://github.com/supajump/supajump.git", projectPath])
-  
-  // Remove the .git directory to start fresh
-  const gitPath = path.join(projectPath, ".git")
-  await fs.remove(gitPath)
-  
-  // Remove the CLI package directory since users don't need it
-  const cliPath = path.join(projectPath, "packages", "create-supajump-app")
-  if (await fs.pathExists(cliPath)) {
-    await fs.remove(cliPath)
-  }
-  
-  // Update root package.json
-  const rootPackageJsonPath = path.join(projectPath, "package.json")
-  if (await fs.pathExists(rootPackageJsonPath)) {
-    const rootPackageJson = await fs.readJson(rootPackageJsonPath)
-    rootPackageJson.name = projectName
-    rootPackageJson.version = "0.1.0"
-    await fs.writeJson(rootPackageJsonPath, rootPackageJson, { spaces: 2 })
-  }
-  
-  // Update app package.json name
-  const appPackageJsonPath = path.join(projectPath, "apps", "app", "package.json")
-  if (await fs.pathExists(appPackageJsonPath)) {
-    const appPackageJson = await fs.readJson(appPackageJsonPath)
-    appPackageJson.name = `@${projectName}/app`
-    await fs.writeJson(appPackageJsonPath, appPackageJson, { spaces: 2 })
+  if (useTurborepo) {
+    // Clone the entire monorepo structure (excluding create-supajump-app)
+    const emitter = degit("supajump/supajump", {
+      cache: false,
+      force: true,
+      verbose: false,
+    })
+    
+    await emitter.clone(projectPath)
+    
+    // Remove the CLI package directory
+    const cliPath = path.join(projectPath, "packages", "create-supajump-app")
+    if (await fs.pathExists(cliPath)) {
+      await fs.remove(cliPath)
+    }
+    
+    // Update root package.json
+    const rootPackageJsonPath = path.join(projectPath, "package.json")
+    if (await fs.pathExists(rootPackageJsonPath)) {
+      const rootPackageJson = await fs.readJson(rootPackageJsonPath)
+      rootPackageJson.name = projectName
+      rootPackageJson.version = "0.1.0"
+      await fs.writeJson(rootPackageJsonPath, rootPackageJson, { spaces: 2 })
+    }
+    
+    // Update app package.json name
+    const appPackageJsonPath = path.join(projectPath, "apps", "app", "package.json")
+    if (await fs.pathExists(appPackageJsonPath)) {
+      const appPackageJson = await fs.readJson(appPackageJsonPath)
+      appPackageJson.name = `@${projectName}/app`
+      await fs.writeJson(appPackageJsonPath, appPackageJson, { spaces: 2 })
+    }
+  } else {
+    // Clone only the app directory
+    const emitter = degit("supajump/supajump/apps/app", {
+      cache: false,
+      force: true,
+      verbose: false,
+    })
+    
+    await emitter.clone(projectPath)
+    
+    // Also clone the supabase directory for local development
+    const supabaseEmitter = degit("supajump/supajump/supabase", {
+      cache: false,
+      force: true,
+      verbose: false,
+    })
+    
+    const supabasePath = path.join(projectPath, "supabase")
+    await supabaseEmitter.clone(supabasePath)
+    
+    // Update package.json name and remove monorepo fields
+    const packageJsonPath = path.join(projectPath, "package.json")
+    if (await fs.pathExists(packageJsonPath)) {
+      const packageJson = await fs.readJson(packageJsonPath)
+      packageJson.name = projectName
+      // Remove any workspace or monorepo related fields
+      delete packageJson.workspaces
+      delete packageJson.packageManager
+      await fs.writeJson(packageJsonPath, packageJson, { spaces: 2 })
+    }
   }
 }
 
-async function createEnvFile(projectPath: string) {
+async function createEnvFile(projectPath: string, useTurborepo: boolean) {
   const envExample = `# Supabase
 # Get these from your Supabase project settings
 # For local development: http://localhost:54321
@@ -78,13 +113,17 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 `
 
+  const envPath = useTurborepo 
+    ? path.join(projectPath, "apps", "app") 
+    : projectPath
+
   await fs.writeFile(
-    path.join(projectPath, "apps", "app", ".env.example"),
+    path.join(envPath, ".env.example"),
     envExample
   )
   
   await fs.writeFile(
-    path.join(projectPath, "apps", "app", ".env.local"),
+    path.join(envPath, ".env.local"),
     envExample
   )
 }
@@ -99,7 +138,7 @@ async function main() {
   program
     .name("create-supajump-app")
     .description("Create a new Supajump application")
-    .version("0.3.0")
+    .version("0.4.0")
     .argument("[project-name]", "Name of the project")
     .parse()
 
@@ -156,6 +195,19 @@ async function main() {
 
   const packageManager = pmResult as PackageManager
 
+  // Ask about Turborepo
+  const turborepoResult = await confirm({
+    message: "Use Turborepo for a monorepo setup?",
+    initialValue: false
+  })
+
+  if (isCancel(turborepoResult)) {
+    cancel("Installation cancelled")
+    process.exit(0)
+  }
+
+  const useTurborepo = turborepoResult as boolean
+
   // Ask about Git
   const gitResult = await confirm({
     message: "Initialize a new git repository?",
@@ -188,12 +240,12 @@ async function main() {
 
   try {
     // Clone template from GitHub
-    await cloneTemplate(projectPath)
+    await cloneTemplate(projectPath, useTurborepo)
     setupSpinner.stop("Project files created")
 
     // Create env files
     setupSpinner.start("Creating environment files...")
-    await createEnvFile(projectPath)
+    await createEnvFile(projectPath, useTurborepo)
     setupSpinner.stop("Environment files created")
 
     // Initialize git
@@ -218,7 +270,7 @@ async function main() {
     console.log(chalk.cyan(`  cd ${projectName}`))
     console.log()
     console.log(chalk.gray("  # Set up your Supabase credentials"))
-    console.log(chalk.cyan(`  ${packageManager === "npm" ? "nano" : "$EDITOR"} apps/app/.env.local`))
+    console.log(chalk.cyan(`  ${packageManager === "npm" ? "nano" : "$EDITOR"} ${useTurborepo ? "apps/app/" : ""}.env.local`))
     console.log()
     console.log(chalk.gray("  # Start local Supabase"))
     console.log(chalk.cyan("  supabase start"))
