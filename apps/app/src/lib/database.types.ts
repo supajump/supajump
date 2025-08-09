@@ -806,10 +806,6 @@ export type Database = {
         Args: { org_id: string }
         Returns: number
       }
-      get_org_role_id: {
-        Args: { role_name: string }
-        Returns: string
-      }
       get_organization_billing_status: {
         Args: { lookup_org_id: string }
         Returns: Json
@@ -825,10 +821,6 @@ export type Database = {
       get_organizations_for_current_user_matching_roles: {
         Args: { passed_in_role_ids?: string[] }
         Returns: string[]
-      }
-      get_team_role_id: {
-        Args: { role_name: string }
-        Returns: string
       }
       get_teams_for_current_user: {
         Args: { passed_in_role_id?: string }
