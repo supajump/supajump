@@ -1,10 +1,10 @@
 {
-  "name": "create-supajump-app",
+  "name": "@supajump/create-app",
   "version": "0.4.1",
   "description": "Create a new Supajump app - Multi-tenant SaaS starter with Next.js and Supabase",
   "type": "module",
   "bin": {
-    "create-supajump-app": "./dist/index.js"
+    "create-app": "./dist/index.js"
   },
   "scripts": {
     "dev": "tsup src/index.ts --watch",
