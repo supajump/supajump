@@ -1496,94 +1496,107 @@ select
 create policy "roles_insert_simple" on public.roles for insert to authenticated
 with
   check (
-    -- Organization primary owner can create org roles
+    supajump.dynamic_roles_enabled()
+    and (
+      -- Organization primary owner can create org roles
+      exists (
+        select
+          1
+        from
+          organizations o
+        where
+          o.id = org_id
+          and o.primary_owner_user_id = auth.uid ()
+      )
+      -- Team primary owner can create team roles
+      or exists (
+        select
+          1
+        from
+          teams t
+        where
+          t.id = team_id
+          and t.primary_owner_user_id = auth.uid ()
+      )
+    )
+  );
+
+create policy "roles_update_simple" on public.roles
+for update to authenticated
+using (
+  supajump.dynamic_roles_enabled()
+  and (
+    -- Organization primary owner can edit org roles
     exists (
       select
         1
       from
         organizations o
       where
-        o.id = org_id
+        o.id = roles.org_id
         and o.primary_owner_user_id = auth.uid ()
     )
-    -- Team primary owner can create team roles
+    -- Team primary owner can edit team roles
     or exists (
       select
         1
       from
         teams t
       where
-        t.id = team_id
+        t.id = roles.team_id
         and t.primary_owner_user_id = auth.uid ()
     )
-  );
-
-create policy "roles_update_simple" on public.roles for
-update to authenticated using (
-  -- Organization primary owner can edit org roles
-  exists (
-    select
-      1
-    from
-      organizations o
-    where
-      o.id = roles.org_id
-      and o.primary_owner_user_id = auth.uid ()
-  )
-  -- Team primary owner can edit team roles
-  or exists (
-    select
-      1
-    from
-      teams t
-    where
-      t.id = roles.team_id
-      and t.primary_owner_user_id = auth.uid ()
   )
 )
 with
   check (
-    -- Same check for the updated values
+    supajump.dynamic_roles_enabled()
+    and (
+      -- Same check for the updated values
+      exists (
+        select
+          1
+        from
+          organizations o
+        where
+          o.id = org_id
+          and o.primary_owner_user_id = auth.uid ()
+      )
+      or exists (
+        select
+          1
+        from
+          teams t
+        where
+          t.id = team_id
+          and t.primary_owner_user_id = auth.uid ()
+      )
+    )
+  );
+
+create policy "roles_delete_simple" on public.roles for delete to authenticated using (
+  supajump.dynamic_roles_enabled()
+  and (
+    -- Organization primary owner can delete org roles
     exists (
       select
         1
       from
         organizations o
       where
-        o.id = org_id
+        o.id = roles.org_id
         and o.primary_owner_user_id = auth.uid ()
     )
+    -- Team primary owner can delete team roles
     or exists (
       select
         1
       from
         teams t
       where
-        t.id = team_id
+        t.id = roles.team_id
         and t.primary_owner_user_id = auth.uid ()
     )
-  );
-
-create policy "roles_delete_simple" on public.roles for delete to authenticated using (
-  -- Organization primary owner can delete org roles
-  exists (
-    select
-      1
-    from
-      organizations o
-    where
-      o.id = roles.org_id
-      and o.primary_owner_user_id = auth.uid ()
-  )
-  -- Team primary owner can delete team roles
-  or exists (
-    select
-      1
-    from
-      teams t
-    where
-      t.id = roles.team_id
-      and t.primary_owner_user_id = auth.uid ()
   )
 );
 
@@ -1639,94 +1652,107 @@ select
 create policy "role_permissions_insert_simple" on public.role_permissions for insert to authenticated
 with
   check (
-    -- Organization primary owner can create org role permissions
+    supajump.dynamic_roles_enabled()
+    and (
+      -- Organization primary owner can create org role permissions
+      exists (
+        select
+          1
+        from
+          organizations o
+        where
+          o.id = org_id
+          and o.primary_owner_user_id = auth.uid ()
+      )
+      -- Team primary owner can create team role permissions
+      or exists (
+        select
+          1
+        from
+          teams t
+        where
+          t.id = team_id
+          and t.primary_owner_user_id = auth.uid ()
+      )
+    )
+  );
+
+create policy "role_permissions_update_simple" on public.role_permissions
+for update to authenticated
+using (
+  supajump.dynamic_roles_enabled()
+  and (
+    -- Organization primary owner can edit org role permissions
     exists (
       select
         1
       from
         organizations o
       where
-        o.id = org_id
+        o.id = role_permissions.org_id
         and o.primary_owner_user_id = auth.uid ()
     )
-    -- Team primary owner can create team role permissions
+    -- Team primary owner can edit team role permissions
     or exists (
       select
         1
       from
         teams t
       where
-        t.id = team_id
+        t.id = role_permissions.team_id
         and t.primary_owner_user_id = auth.uid ()
     )
-  );
-
-create policy "role_permissions_update_simple" on public.role_permissions for
-update to authenticated using (
-  -- Organization primary owner can edit org role permissions
-  exists (
-    select
-      1
-    from
-      organizations o
-    where
-      o.id = role_permissions.org_id
-      and o.primary_owner_user_id = auth.uid ()
-  )
-  -- Team primary owner can edit team role permissions
-  or exists (
-    select
-      1
-    from
-      teams t
-    where
-      t.id = role_permissions.team_id
-      and t.primary_owner_user_id = auth.uid ()
   )
 )
 with
   check (
-    -- Same check for the updated values
+    supajump.dynamic_roles_enabled()
+    and (
+      -- Same check for the updated values
+      exists (
+        select
+          1
+        from
+          organizations o
+        where
+          o.id = org_id
+          and o.primary_owner_user_id = auth.uid ()
+      )
+      or exists (
+        select
+          1
+        from
+          teams t
+        where
+          t.id = team_id
+          and t.primary_owner_user_id = auth.uid ()
+      )
+    )
+  );
+
+create policy "role_permissions_delete_simple" on public.role_permissions for delete to authenticated using (
+  supajump.dynamic_roles_enabled()
+  and (
+    -- Organization primary owner can delete org role permissions
     exists (
       select
         1
       from
         organizations o
       where
-        o.id = org_id
+        o.id = role_permissions.org_id
         and o.primary_owner_user_id = auth.uid ()
     )
+    -- Team primary owner can delete team role permissions
     or exists (
       select
         1
       from
         teams t
       where
-        t.id = team_id
+        t.id = role_permissions.team_id
         and t.primary_owner_user_id = auth.uid ()
     )
-  );
-
-create policy "role_permissions_delete_simple" on public.role_permissions for delete to authenticated using (
-  -- Organization primary owner can delete org role permissions
-  exists (
-    select
-      1
-    from
-      organizations o
-    where
-      o.id = role_permissions.org_id
-      and o.primary_owner_user_id = auth.uid ()
-  )
-  -- Team primary owner can delete team role permissions
-  or exists (
-    select
-      1
-    from
-      teams t
-    where
-      t.id = role_permissions.team_id
-      and t.primary_owner_user_id = auth.uid ()
   )
 );
 
