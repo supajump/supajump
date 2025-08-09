@@ -167,6 +167,15 @@ create table if not exists
     constraint org_member_roles_role_org_member_unique unique (role_id, org_member_id)
   );
 
+alter table public.org_member_roles
+  add constraint org_member_roles_role_org_match
+  check (
+    exists (
+      select 1 from roles r
+      where r.id = role_id and r.org_id = org_id
+    )
+  );
+
 alter table public.org_member_roles enable row level security;
 
 /**
@@ -179,6 +188,15 @@ create table if not exists
     team_member_id uuid references team_memberships (id) on delete cascade,
     team_id uuid not null references teams (id) on delete cascade,
     constraint team_member_roles_role_team_member_unique unique (role_id, team_member_id)
+  );
+
+alter table public.team_member_roles
+  add constraint team_member_roles_role_team_match
+  check (
+    exists (
+      select 1 from roles r
+      where r.id = role_id and r.team_id = team_id
+    )
   );
 
 alter table public.team_member_roles enable row level security;
@@ -764,26 +782,27 @@ set
   select name from roles where id = role_id limit 1
 $$;
 
--- Public convenience functions for applications
 create
-or replace function public.get_org_role_id (role_name text) returns uuid language sql security definer
+or replace function supajump.get_org_role_id (role_name text, _org_id uuid) returns uuid language sql security definer
 set
   search_path = public as $$
-  select id from roles where name = role_name and scope = 'organization' limit 1
+  select id
+  from roles
+  where name = role_name and scope = 'organization' and org_id = _org_id
+  limit 1
 $$;
 
 create
-or replace function public.get_team_role_id (role_name text) returns uuid language sql security definer
+or replace function supajump.get_team_role_id (role_name text, _team_id uuid) returns uuid language sql security definer
 set
   search_path = public as $$
-  select id from roles where name = role_name and scope = 'team' limit 1
+  select id
+  from roles
+  where name = role_name and scope = 'team' and team_id = _team_id
+  limit 1
 $$;
 
-grant
-execute on function public.get_org_role_id (text) to authenticated;
 
-grant
-execute on function public.get_team_role_id (text) to authenticated;
 
 /*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 9. USER CONTEXT FUNCTIONS
@@ -1173,7 +1192,7 @@ begin
   for pair in select * from jsonb_array_elements(user_role_pairs)
   loop
     user_uuid := (pair->>'user_id')::uuid;
-    role_uuid := public.get_org_role_id(pair->>'role_name');
+    role_uuid := supajump.get_org_role_id(pair->>'role_name', org_id);
     
     if role_uuid is null then
       raise exception 'ROLE_NOT_FOUND: Role % not found', pair->>'role_name';
