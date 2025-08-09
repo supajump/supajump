@@ -1414,26 +1414,15 @@ select
   );
 
 -- Groups policies
-create policy "Users can view groups they belong to" on public.groups for
+create policy "Groups visible within member orgs" on public.groups for
 select
   to authenticated using (
-    id in (
-      select
-        org_id
-      from
-        org_memberships
-      where
-        user_id = auth.uid ()
-    ) -- Users can see orgs they belong to
-    or id in (
-      select
-        team_id
-      from
-        team_memberships
-      where
-        user_id = auth.uid ()
-    ) -- Users can see teams they belong to
-    or primary_owner_user_id = auth.uid () -- Owners can see their groups
+    org_id in (
+      select om.org_id 
+      from public.org_memberships om 
+      where om.user_id = auth.uid()
+    )
+    or primary_owner_user_id = auth.uid()
   );
 
 -- Simple RLS policies for roles (no circular dependencies)
