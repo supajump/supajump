@@ -135,7 +135,7 @@ alter table public.roles enable row level security;
  * Role permissions define what actions roles can perform on resources.
  * resource  = logical entity (posts, billing, settings …)
  * action    = view | edit | delete | manage …
- * scope     = all | own (whether permission applies to all records or just owned records) designated by owner_id = auth.uid()
+ * scope     = all | own (permission applies to all records or only user-owned records when an explicit 'own' permission is granted) designated by owner_id = auth.uid()
  * cascade_down = whether org-level permissions cascade to teams
  * target_kind = what type of entities this permission cascades to
  */
@@ -525,6 +525,8 @@ as $$
 $$;
 
 -- Helper function to determine if a user has a permission for a resource/action for use in RLS
+-- Direct row ownership does not grant access; owners must have explicit permissions
+-- (e.g. with scope='own'). Only organization or team primary owners bypass RBAC checks.
 CREATE
 OR REPLACE FUNCTION supajump.has_permission (
   _resource text,
@@ -534,21 +536,18 @@ OR REPLACE FUNCTION supajump.has_permission (
   _owner_id uuid DEFAULT NULL
 ) RETURNS boolean LANGUAGE sql STABLE PARALLEL SAFE COST 1 AS $$
   SELECT
-    -- Fast path 1: Owner bypass (primary key lookups)
+    -- Fast path: org/team primary owner bypass (primary key lookups)
     EXISTS (
-      SELECT 1 FROM organizations 
+      SELECT 1 FROM organizations
       WHERE id = _org_id AND primary_owner_user_id = auth.uid()
     )
     OR (
-      _team_id IS NOT NULL 
+      _team_id IS NOT NULL
       AND EXISTS (
-        SELECT 1 FROM teams 
+        SELECT 1 FROM teams
         WHERE id = _team_id AND primary_owner_user_id = auth.uid()
       )
     )
-    OR
-    -- Fast path 2: Direct ownership (if applicable)
-    (_owner_id IS NOT NULL AND _owner_id = auth.uid())
     OR
     -- Permission-based access
     EXISTS (
