@@ -235,7 +235,7 @@ FOR DELETE TO authenticated WITH CHECK (
 
 The `has_permission` helper function automatically handles:
 - Organization and team owner bypass checks
-- Direct ownership checks (when `owner_id` matches the current user)
+- Ownership checks only when an explicit `scope = 'own'` permission is granted
 - Role-based permission checks through the `user_permissions_view`
 - Permission scope handling (`all` vs `own`)
 
