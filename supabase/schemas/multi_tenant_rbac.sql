@@ -131,6 +131,10 @@ create table if not exists
 
 alter table public.roles enable row level security;
 
+-- Add unique constraints to support composite foreign keys
+create unique index if not exists idx_roles_id_org_id on public.roles (id, org_id);
+create unique index if not exists idx_roles_id_team_id on public.roles (id, team_id) where team_id is not null;
+
 /**
  * Role permissions define what actions roles can perform on resources.
  * resource  = logical entity (posts, billing, settings …)
@@ -167,14 +171,11 @@ create table if not exists
     constraint org_member_roles_role_org_member_unique unique (role_id, org_member_id)
   );
 
+-- Use composite foreign key instead of check constraint
 alter table public.org_member_roles
-  add constraint org_member_roles_role_org_match
-  check (
-    exists (
-      select 1 from roles r
-      where r.id = role_id and r.org_id = org_id
-    )
-  );
+  add constraint org_member_roles_role_org_fk
+  foreign key (role_id, org_id)
+  references roles(id, org_id);
 
 alter table public.org_member_roles enable row level security;
 
@@ -190,14 +191,11 @@ create table if not exists
     constraint team_member_roles_role_team_member_unique unique (role_id, team_member_id)
   );
 
+-- Use composite foreign key instead of check constraint
 alter table public.team_member_roles
-  add constraint team_member_roles_role_team_match
-  check (
-    exists (
-      select 1 from roles r
-      where r.id = role_id and r.team_id = team_id
-    )
-  );
+  add constraint team_member_roles_role_team_fk
+  foreign key (role_id, team_id)
+  references roles(id, team_id);
 
 alter table public.team_member_roles enable row level security;
 
