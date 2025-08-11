@@ -83,6 +83,9 @@ create table if not exists
 
 alter table public.teams enable row level security;
 
+-- Add unique constraint to support foreign key from roles table
+create unique index if not exists uq_teams_org_id_id on public.teams (org_id, id);
+
 /**
  * Team memberships are the users that are associated with a team.
  * They can have different roles within the team.
@@ -131,6 +134,18 @@ create table if not exists
 
 alter table public.roles enable row level security;
 
+-- Add unique constraints to support composite foreign keys
+-- These are non-partial to allow foreign key references
+create unique index if not exists uq_roles_id_org on public.roles (id, org_id);
+create unique index if not exists uq_roles_id_team on public.roles (id, team_id);
+
+-- Ensure team roles belong to the correct organization
+alter table public.roles
+  add constraint roles_team_org_match_fk
+  foreign key (org_id, team_id)
+  references teams(org_id, id)
+  on delete cascade;
+
 /**
  * Role permissions define what actions roles can perform on resources.
  * resource  = logical entity (posts, billing, settings …)
@@ -142,7 +157,7 @@ alter table public.roles enable row level security;
 create table if not exists
   public.role_permissions (
     id uuid primary key default gen_random_uuid (),
-    role_id uuid references roles (id) on delete cascade,
+    role_id uuid not null,
     org_id uuid not null references organizations (id) on delete cascade,
     team_id uuid references teams (id) on delete cascade,
     scope text not null default 'all',
@@ -150,7 +165,10 @@ create table if not exists
     action text not null,
     cascade_down boolean default false,
     target_kind text,
-    constraint role_permissions_scope_check check (scope in ('all', 'own'))
+    constraint role_permissions_scope_check check (scope in ('all', 'own')),
+    -- Composite foreign keys to ensure consistency
+    constraint role_permissions_role_org_fk foreign key (role_id, org_id) references roles(id, org_id) on delete cascade,
+    constraint role_permissions_role_team_fk foreign key (role_id, team_id) references roles(id, team_id) on delete cascade
   );
 
 alter table public.role_permissions enable row level security;
@@ -161,19 +179,11 @@ alter table public.role_permissions enable row level security;
 create table if not exists
   public.org_member_roles (
     id uuid primary key default gen_random_uuid (),
-    role_id uuid references roles (id) on delete cascade,
+    role_id uuid not null,
     org_member_id uuid references org_memberships (id) on delete cascade,
     org_id uuid not null references organizations (id) on delete cascade,
-    constraint org_member_roles_role_org_member_unique unique (role_id, org_member_id)
-  );
-
-alter table public.org_member_roles
-  add constraint org_member_roles_role_org_match
-  check (
-    exists (
-      select 1 from roles r
-      where r.id = role_id and r.org_id = org_id
-    )
+    constraint org_member_roles_role_org_member_unique unique (role_id, org_member_id),
+    constraint org_member_roles_role_org_fk foreign key (role_id, org_id) references roles(id, org_id) on delete cascade
   );
 
 alter table public.org_member_roles enable row level security;
@@ -184,19 +194,11 @@ alter table public.org_member_roles enable row level security;
 create table if not exists
   public.team_member_roles (
     id uuid primary key default gen_random_uuid (),
-    role_id uuid references roles (id) on delete cascade,
+    role_id uuid not null,
     team_member_id uuid references team_memberships (id) on delete cascade,
     team_id uuid not null references teams (id) on delete cascade,
-    constraint team_member_roles_role_team_member_unique unique (role_id, team_member_id)
-  );
-
-alter table public.team_member_roles
-  add constraint team_member_roles_role_team_match
-  check (
-    exists (
-      select 1 from roles r
-      where r.id = role_id and r.team_id = team_id
-    )
+    constraint team_member_roles_role_team_member_unique unique (role_id, team_member_id),
+    constraint team_member_roles_role_team_fk foreign key (role_id, team_id) references roles(id, team_id) on delete cascade
   );
 
 alter table public.team_member_roles enable row level security;
@@ -474,39 +476,8 @@ create trigger protect_team_fields before
 update on public.teams for each row
 execute function public.protect_team_fields ();
 
--- Validation function to ensure role/permission consistency
-create
-or replace function supajump.validate_role_permission_consistency () returns trigger language plpgsql as $$
-begin
-  -- Ensure team_id matches between role and permission
-  if NEW.team_id is not null then
-    if not exists (
-      select 1 from public.roles r 
-      where r.id = NEW.role_id 
-      and r.team_id = NEW.team_id
-    ) then
-      raise exception 'Role team_id must match permission team_id';
-    end if;
-  end if;
-  
-  -- Ensure org_id matches between role and permission
-  if not exists (
-    select 1 from public.roles r 
-    where r.id = NEW.role_id 
-    and r.org_id = NEW.org_id
-  ) then
-    raise exception 'Role org_id must match permission org_id';
-  end if;
-  
-  return new;
-end;
-$$;
-
--- Add the validation trigger
-create trigger validate_role_permission_consistency before insert
-or
-update on public.role_permissions for each row
-execute function supajump.validate_role_permission_consistency ();
+-- Note: Role/permission consistency is now enforced via composite foreign keys
+-- No validation trigger needed
 
 /*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 7. PERMISSION CHECKING FUNCTIONS
