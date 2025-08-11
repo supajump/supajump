@@ -212,7 +212,7 @@ $_$;
 
 create
 or replace function public.slugify (text) returns text language sql as $_$
-    select replace(replace($1, ' ', '-'), '[^a-z0-9-]', '')
+    select regexp_replace(replace(lower($1), ' ', '-'), '[^a-z0-9-]', '', 'g')
 $_$;
 
 create
