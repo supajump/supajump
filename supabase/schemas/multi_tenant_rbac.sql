@@ -84,7 +84,7 @@ create table if not exists
 alter table public.teams enable row level security;
 
 -- Add unique constraint to support foreign key from roles table
-create unique index if not exists uq_teams_org_id_id on public.teams (org_id, id);
+alter table public.teams add constraint uq_teams_org_id_id unique (org_id, id);
 
 /**
  * Team memberships are the users that are associated with a team.
@@ -135,9 +135,8 @@ create table if not exists
 alter table public.roles enable row level security;
 
 -- Add unique constraints to support composite foreign keys
--- These are non-partial to allow foreign key references
-create unique index if not exists uq_roles_id_org on public.roles (id, org_id);
-create unique index if not exists uq_roles_id_team on public.roles (id, team_id);
+alter table public.roles add constraint uq_roles_id_org  unique (id, org_id);
+alter table public.roles add constraint uq_roles_id_team unique (id, team_id);
 
 -- Ensure team roles belong to the correct organization
 alter table public.roles
@@ -202,6 +201,13 @@ create table if not exists
   );
 
 alter table public.team_member_roles enable row level security;
+
+-- For faster delete/update cascades and FK checks
+create index if not exists idx_omr_role_org  on public.org_member_roles (role_id, org_id);
+create index if not exists idx_tmr_role_team on public.team_member_roles (role_id, team_id);
+create index if not exists idx_rp_role_org   on public.role_permissions  (role_id, org_id);
+create index if not exists idx_rp_role_team  on public.role_permissions  (role_id, team_id);
+
 
 /*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 3. UNIFIED GROUPS VIEW
