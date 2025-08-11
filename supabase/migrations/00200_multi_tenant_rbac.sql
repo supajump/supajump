@@ -662,31 +662,25 @@ $$;
 grant
 execute on function public.is_dynamic_roles_enabled () to authenticated;
 
--- Function to enable/disable dynamic roles (superuser only)
+-- Function to enable/disable dynamic roles (service role only)
 create
 or replace function supajump.set_dynamic_roles_enabled (enabled boolean) returns void language plpgsql security definer
 set
   search_path = public as $$
 begin
-  -- Only allow superuser to change this setting
-  if not exists (
-    select 1 
-    from pg_roles 
-    where rolname = current_user 
-    and rolsuper = true
-  ) then
-    raise exception 'PERMISSION_DENIED: Only superusers can modify dynamic roles setting. Current user: %', current_user
-      using hint = 'Contact your database administrator to enable/disable dynamic roles';
-  end if;
-  
-  insert into app_settings (key, value) 
+  insert into app_settings (key, value)
   values ('dynamic_roles_enabled', to_jsonb(enabled))
-  on conflict (key) do update 
+  on conflict (key) do update
   set value = excluded.value, updated_at = now();
-  
+
   raise notice 'Dynamic roles %', case when enabled then 'ENABLED' else 'DISABLED' end;
 end;
 $$;
+
+revoke all on function supajump.set_dynamic_roles_enabled (boolean) from public, authenticated;
+
+grant
+execute on function supajump.set_dynamic_roles_enabled (boolean) to service_role;
 
 -- App settings policies (only superusers can modify)
 create policy "Superusers can manage app settings" on public.app_settings for all using (
@@ -739,10 +733,10 @@ STATIC VS DYNAMIC ROLE MANAGEMENT USAGE:
 - Suitable for applications requiring flexible permission management
 
 3. TOGGLE BETWEEN MODES:
-To enable dynamic roles (superuser only):
+To enable dynamic roles (service role only):
 SELECT supajump.set_dynamic_roles_enabled(true);
 
-To disable dynamic roles (superuser only):
+To disable dynamic roles (service role only):
 SELECT supajump.set_dynamic_roles_enabled(false);
 
 4. CHECK CURRENT MODE:
