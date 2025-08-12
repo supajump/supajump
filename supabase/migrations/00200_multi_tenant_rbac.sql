@@ -15,6 +15,42 @@ Key Features:
 -- Create the supajump schema for internal functions
 create schema if not exists supajump;
 
+-- Schema access
+revoke all on schema supajump
+from
+  public,
+  authenticated;
+
+grant usage on schema supajump to postgres;
+
+-- implicit as owner
+-- Optional: allow your service role to read/write if you manage catalogs via API
+grant usage on schema supajump to service_role;
+
+-- Table/sequence privileges
+revoke all on all tables in schema supajump
+from
+  public,
+  authenticated;
+
+revoke all on all sequences in schema supajump
+from
+  public,
+  authenticated;
+
+-- Future objects default privileges
+alter default privileges in schema supajump
+revoke all on tables
+from
+  public,
+  authenticated;
+
+alter default privileges in schema supajump
+revoke all on sequences
+from
+  public,
+  authenticated;
+
 /*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 1. CORE TENANT STRUCTURE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
@@ -84,7 +120,8 @@ create table if not exists
 alter table public.teams enable row level security;
 
 -- Add unique constraint to support foreign key from roles table
-alter table public.teams add constraint uq_teams_org_id_id unique (org_id, id);
+alter table public.teams
+add constraint uq_teams_org_id_id unique (org_id, id);
 
 /**
  * Team memberships are the users that are associated with a team.
@@ -103,7 +140,7 @@ create table if not exists
 alter table public.team_memberships enable row level security;
 
 /*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-2. ROLES AND PERMISSIONS SYSTEM
+2.A. ROLES AND PERMISSIONS SYSTEM
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
 /**
  * Roles define named collections of permissions within an organization.
@@ -135,15 +172,15 @@ create table if not exists
 alter table public.roles enable row level security;
 
 -- Add unique constraints to support composite foreign keys
-alter table public.roles add constraint uq_roles_id_org  unique (id, org_id);
-alter table public.roles add constraint uq_roles_id_team unique (id, team_id);
+alter table public.roles
+add constraint uq_roles_id_org unique (id, org_id);
+
+alter table public.roles
+add constraint uq_roles_id_team unique (id, team_id);
 
 -- Ensure team roles belong to the correct organization
 alter table public.roles
-  add constraint roles_team_org_match_fk
-  foreign key (org_id, team_id)
-  references teams(org_id, id)
-  on delete cascade;
+add constraint roles_team_org_match_fk foreign key (org_id, team_id) references teams (org_id, id) on delete cascade;
 
 /**
  * Role permissions define what actions roles can perform on resources.
@@ -166,8 +203,8 @@ create table if not exists
     target_kind text,
     constraint role_permissions_scope_check check (scope in ('all', 'own')),
     -- Composite foreign keys to ensure consistency
-    constraint role_permissions_role_org_fk foreign key (role_id, org_id) references roles(id, org_id) on delete cascade,
-    constraint role_permissions_role_team_fk foreign key (role_id, team_id) references roles(id, team_id) on delete cascade
+    constraint role_permissions_role_org_fk foreign key (role_id, org_id) references roles (id, org_id) on delete cascade,
+    constraint role_permissions_role_team_fk foreign key (role_id, team_id) references roles (id, team_id) on delete cascade
   );
 
 alter table public.role_permissions enable row level security;
@@ -182,7 +219,7 @@ create table if not exists
     org_member_id uuid references org_memberships (id) on delete cascade,
     org_id uuid not null references organizations (id) on delete cascade,
     constraint org_member_roles_role_org_member_unique unique (role_id, org_member_id),
-    constraint org_member_roles_role_org_fk foreign key (role_id, org_id) references roles(id, org_id) on delete cascade
+    constraint org_member_roles_role_org_fk foreign key (role_id, org_id) references roles (id, org_id) on delete cascade
   );
 
 alter table public.org_member_roles enable row level security;
@@ -197,17 +234,411 @@ create table if not exists
     team_member_id uuid references team_memberships (id) on delete cascade,
     team_id uuid not null references teams (id) on delete cascade,
     constraint team_member_roles_role_team_member_unique unique (role_id, team_member_id),
-    constraint team_member_roles_role_team_fk foreign key (role_id, team_id) references roles(id, team_id) on delete cascade
+    constraint team_member_roles_role_team_fk foreign key (role_id, team_id) references roles (id, team_id) on delete cascade
   );
 
 alter table public.team_member_roles enable row level security;
 
 -- For faster delete/update cascades and FK checks
-create index if not exists idx_omr_role_org  on public.org_member_roles (role_id, org_id);
-create index if not exists idx_tmr_role_team on public.team_member_roles (role_id, team_id);
-create index if not exists idx_rp_role_org   on public.role_permissions  (role_id, org_id);
-create index if not exists idx_rp_role_team  on public.role_permissions  (role_id, team_id);
+create index if not exists idx_omr_role_org on public.org_member_roles (role_id, org_id);
 
+create index if not exists idx_tmr_role_team on public.team_member_roles (role_id, team_id);
+
+create index if not exists idx_rp_role_org on public.role_permissions (role_id, org_id);
+
+create index if not exists idx_rp_role_team on public.role_permissions (role_id, team_id);
+
+/*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2.B. Role and Permission System Catalog
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
+-- Define system catalogs (single source of truth)
+-- System catalogs live in supajump and are edited only by platform admins
+create table if not exists
+  supajump.role_catalog (
+    scope text not null check (scope in ('organization', 'team')),
+    name text not null,
+    display_name text not null,
+    description text,
+    primary key (scope, name)
+  );
+
+create table if not exists
+  supajump.permission_catalog (
+    scope text not null check (scope in ('organization', 'team')),
+    role_name text not null,
+    resource text not null,
+    action text not null,
+    perm_scope text not null default 'all' check (perm_scope in ('all', 'own')),
+    cascade_down boolean default false,
+    target_kind text,
+    primary key (scope, role_name, resource, action)
+  );
+
+-- Default org roles
+insert into
+  supajump.role_catalog (scope, name, display_name, description)
+values
+  (
+    'organization',
+    'owner',
+    'Owner',
+    'Full organization access'
+  ),
+  ('organization', 'admin', 'Admin', 'Administrative access'),
+  ('organization', 'member', 'Member', 'Basic access') on conflict
+do nothing;
+
+-- Default org permissions
+insert into
+  supajump.permission_catalog (
+    scope,
+    role_name,
+    resource,
+    action,
+    perm_scope,
+    cascade_down,
+    target_kind
+  )
+values
+  -- owner: everything, cascades
+  ('organization', 'owner', 'all', 'all', 'all', true, null),
+  -- admin: broad but not absolute (adjust as you like)
+  (
+    'organization',
+    'admin',
+    'teams',
+    'view',
+    'all',
+    true,
+    'team'
+  ),
+  (
+    'organization',
+    'admin',
+    'teams',
+    'create',
+    'all',
+    true,
+    'team'
+  ),
+  (
+    'organization',
+    'admin',
+    'teams',
+    'edit',
+    'all',
+    true,
+    'team'
+  ),
+  (
+    'organization',
+    'admin',
+    'posts',
+    'view',
+    'all',
+    true,
+    'team'
+  ),
+  (
+    'organization',
+    'admin',
+    'posts',
+    'create',
+    'all',
+    true,
+    'team'
+  ),
+  (
+    'organization',
+    'admin',
+    'posts',
+    'edit',
+    'all',
+    true,
+    'team'
+  ),
+  (
+    'organization',
+    'admin',
+    'members',
+    'view',
+    'all',
+    true,
+    null
+  ),
+  (
+    'organization',
+    'admin',
+    'members',
+    'edit',
+    'all',
+    true,
+    null
+  ),
+  -- member: basic read
+  (
+    'organization',
+    'member',
+    'teams',
+    'view',
+    'all',
+    false,
+    null
+  ),
+  (
+    'organization',
+    'member',
+    'posts',
+    'view',
+    'all',
+    false,
+    null
+  ) on conflict
+do nothing;
+
+-- Team default roles
+insert into
+  supajump.role_catalog (scope, name, display_name, description)
+values
+  ('team', 'owner', 'Owner', 'Full team access'),
+  (
+    'team',
+    'admin',
+    'Admin',
+    'Administrative access within team'
+  ),
+  ('team', 'member', 'Member', 'Basic team access') on conflict
+do nothing;
+
+-- Team default permissions (tune as needed)
+insert into
+  supajump.permission_catalog (
+    scope,
+    role_name,
+    resource,
+    action,
+    perm_scope,
+    cascade_down,
+    target_kind
+  )
+values
+  -- owner: everything within the team
+  ('team', 'owner', 'all', 'all', 'all', false, null),
+  -- admin: broad but not absolute
+  ('team', 'admin', 'posts', 'view', 'all', false, null),
+  ('team', 'admin', 'posts', 'create', 'all', false, null),
+  ('team', 'admin', 'posts', 'edit', 'all', false, null),
+  ('team', 'admin', 'members', 'view', 'all', false, null),
+  ('team', 'admin', 'members', 'edit', 'all', false, null),
+  -- member: basic read
+  ('team', 'member', 'posts', 'view', 'all', false, null) on conflict
+do nothing;
+
+-- Unified seeder from catalog (idempotent, transactional, RLS-safe)
+create
+or replace function supajump.seed_from_catalog (
+  p_scope text, -- 'organization' | 'team'
+  p_id uuid, -- org_id or team_id depending on scope
+  p_prune boolean default false -- if true, remove perms not in catalog for the catalog-managed roles
+) returns void language plpgsql security definer
+set
+  search_path = public,
+  supajump as $$
+declare
+  v_org_id    uuid;
+  v_team_id   uuid;
+  v_owner_uid uuid;
+begin
+  if p_scope not in ('organization','team') then
+    raise exception 'Invalid scope: %, must be organization|team', p_scope;
+  end if;
+
+  -- Lock to avoid duplicate seeding under concurrency
+  perform pg_advisory_xact_lock(hashtext(p_scope || ':' || p_id::text));
+
+  if p_scope = 'organization' then
+    v_org_id := p_id;
+    select primary_owner_user_id into v_owner_uid from public.organizations where id = v_org_id;
+    if v_owner_uid is null then
+      raise exception 'Organization % not found', v_org_id;
+    end if;
+
+    -- Upsert ORG roles from catalog
+    with upsert_roles as (
+      insert into public.roles(scope, org_id, team_id, name, display_name, description)
+      select 'organization', v_org_id, null, rc.name, rc.display_name, rc.description
+      from supajump.role_catalog rc
+      where rc.scope = 'organization'
+      on conflict (org_id, scope, name)
+      do update set display_name = excluded.display_name,
+                    description  = excluded.description
+      returning id, name
+    ),
+    role_map as (
+      -- All org roles after upsert (existing + newly inserted)
+      select r.id, r.name
+      from public.roles r
+      where r.org_id = v_org_id and r.scope = 'organization' and r.team_id is null
+    )
+    insert into public.role_permissions(role_id, org_id, team_id, scope, resource, action, cascade_down, target_kind)
+    select rm.id, v_org_id, null, pc.perm_scope, pc.resource, pc.action, pc.cascade_down, pc.target_kind
+    from supajump.permission_catalog pc
+    join role_map rm on rm.name = pc.role_name
+    where pc.scope = 'organization'
+    on conflict (org_id, role_id, resource, action) do nothing;
+
+    if p_prune then
+      -- Remove permissions not present in the catalog for catalog-managed roles
+      delete from public.role_permissions rp
+      using public.roles r
+      where r.id = rp.role_id
+        and r.org_id = v_org_id
+        and r.scope = 'organization'
+        and rp.team_id is null
+        and not exists (
+          select 1
+          from supajump.permission_catalog pc
+          where pc.scope = 'organization'
+            and pc.role_name = r.name
+            and pc.resource  = rp.resource
+            and pc.action    = rp.action
+            and pc.perm_scope = rp.scope
+        );
+    end if;
+
+    -- Ensure primary owner has membership + org 'owner' role
+    insert into public.org_memberships(org_id, user_id)
+    values (v_org_id, v_owner_uid)
+    on conflict (org_id, user_id) do nothing;
+
+    insert into public.org_member_roles(role_id, org_member_id, org_id)
+    select r.id, om.id, v_org_id
+    from public.roles r
+    join public.org_memberships om on om.org_id = v_org_id and om.user_id = v_owner_uid
+    where r.org_id = v_org_id and r.scope='organization' and r.team_id is null and r.name='owner'
+    on conflict (role_id, org_member_id) do nothing;
+
+  else
+    -- TEAM scope
+    v_team_id := p_id;
+    select t.org_id, t.primary_owner_user_id into v_org_id, v_owner_uid
+    from public.teams t where t.id = v_team_id;
+    if v_org_id is null then
+      raise exception 'Team % not found', v_team_id;
+    end if;
+
+    -- Upsert TEAM roles from catalog
+    with upsert_roles as (
+      insert into public.roles(scope, org_id, team_id, name, display_name, description)
+      select 'team', v_org_id, v_team_id, rc.name, rc.display_name, rc.description
+      from supajump.role_catalog rc
+      where rc.scope = 'team'
+      on conflict (org_id, team_id, scope, name)
+      do update set display_name = excluded.display_name,
+                    description  = excluded.description
+      returning id, name
+    ),
+    role_map as (
+      select r.id, r.name
+      from public.roles r
+      where r.org_id = v_org_id and r.team_id = v_team_id and r.scope='team'
+    )
+    insert into public.role_permissions(role_id, org_id, team_id, scope, resource, action, cascade_down, target_kind)
+    select rm.id, v_org_id, v_team_id, pc.perm_scope, pc.resource, pc.action, pc.cascade_down, pc.target_kind
+    from supajump.permission_catalog pc
+    join role_map rm on rm.name = pc.role_name
+    where pc.scope = 'team'
+    on conflict (org_id, team_id, role_id, resource, action) do nothing;
+
+    if p_prune then
+      delete from public.role_permissions rp
+      using public.roles r
+      where r.id = rp.role_id
+        and r.org_id = v_org_id
+        and r.team_id = v_team_id
+        and r.scope = 'team'
+        and not exists (
+          select 1
+          from supajump.permission_catalog pc
+          where pc.scope = 'team'
+            and pc.role_name = r.name
+            and pc.resource  = rp.resource
+            and pc.action    = rp.action
+            and pc.perm_scope = rp.scope
+        );
+    end if;
+
+    -- Ensure team primary owner is a member + has team 'owner' role
+    insert into public.team_memberships(team_id, user_id)
+    values (v_team_id, v_owner_uid)
+    on conflict (team_id, user_id) do nothing;
+
+    insert into public.team_member_roles(role_id, team_member_id, team_id)
+    select r.id, tm.id, v_team_id
+    from public.roles r
+    join public.team_memberships tm on tm.team_id = v_team_id and tm.user_id = v_owner_uid
+    where r.org_id = v_org_id and r.team_id = v_team_id and r.scope='team' and r.name='owner'
+    on conflict (role_id, team_member_id) do nothing;
+  end if;
+end;
+$$;
+
+-- RLS-proof
+alter function supajump.seed_from_catalog (text, uuid, boolean) owner to postgres;
+
+-- Tiny wrappers for convenience
+create
+or replace function supajump.reseed_org (p_org_id uuid, p_prune boolean default false) returns void language sql security definer
+set
+  search_path = public,
+  supajump as $$ select supajump.seed_from_catalog('organization', p_org_id, p_prune) $$;
+
+create
+or replace function supajump.reseed_team (p_team_id uuid, p_prune boolean default false) returns void language sql security definer
+set
+  search_path = public,
+  supajump as $$ select supajump.seed_from_catalog('team', p_team_id, p_prune) $$;
+
+alter function supajump.reseed_org (uuid, boolean) owner to postgres;
+
+alter function supajump.reseed_team (uuid, boolean) owner to postgres;
+
+-- Triggers (auto-seed on creation)
+-- Org
+create
+or replace function supajump.trg_seed_org_defaults () returns trigger language plpgsql security definer
+set
+  search_path = public,
+  supajump as $$
+begin
+  perform supajump.seed_from_catalog('organization', new.id, false);
+  return new;
+end;
+$$;
+
+alter function supajump.trg_seed_org_defaults () owner to postgres;
+
+create trigger trg_seed_org_defaults
+after insert on public.organizations for each row
+execute function supajump.trg_seed_org_defaults ();
+
+-- Team
+create
+or replace function supajump.trg_seed_team_defaults () returns trigger language plpgsql security definer
+set
+  search_path = public,
+  supajump as $$
+begin
+  perform supajump.seed_from_catalog('team', new.id, false);
+  return new;
+end;
+$$;
+
+alter function supajump.trg_seed_team_defaults () owner to postgres;
+
+create trigger trg_seed_team_defaults
+after insert on public.teams for each row
+execute function supajump.trg_seed_team_defaults ();
 
 /*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 3. UNIFIED GROUPS VIEW
@@ -484,7 +915,6 @@ execute function public.protect_team_fields ();
 
 -- Note: Role/permission consistency is now enforced via composite foreign keys
 -- No validation trigger needed
-
 /*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 7. PERMISSION CHECKING FUNCTIONS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━*/
@@ -654,7 +1084,10 @@ begin
 end;
 $$;
 
-revoke all on function supajump.set_dynamic_roles_enabled (boolean) from public, authenticated;
+revoke all on function supajump.set_dynamic_roles_enabled (boolean)
+from
+  public,
+  authenticated;
 
 grant
 execute on function supajump.set_dynamic_roles_enabled (boolean) to service_role;
@@ -771,8 +1204,6 @@ set
   where name = role_name and scope = 'team' and team_id = _team_id
   limit 1
 $$;
-
-
 
 /*━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 9. USER CONTEXT FUNCTIONS
@@ -1407,11 +1838,14 @@ create policy "Groups visible within member orgs" on public.groups for
 select
   to authenticated using (
     org_id in (
-      select om.org_id 
-      from public.org_memberships om 
-      where om.user_id = auth.uid()
+      select
+        om.org_id
+      from
+        public.org_memberships om
+      where
+        om.user_id = auth.uid ()
     )
-    or primary_owner_user_id = auth.uid()
+    or primary_owner_user_id = auth.uid ()
   );
 
 -- Simple RLS policies for roles (no circular dependencies)
@@ -1466,7 +1900,7 @@ select
 create policy "roles_insert_simple" on public.roles for insert to authenticated
 with
   check (
-    supajump.dynamic_roles_enabled()
+    supajump.dynamic_roles_enabled ()
     and (
       -- Organization primary owner can create org roles
       exists (
@@ -1491,10 +1925,9 @@ with
     )
   );
 
-create policy "roles_update_simple" on public.roles
-for update to authenticated
-using (
-  supajump.dynamic_roles_enabled()
+create policy "roles_update_simple" on public.roles for
+update to authenticated using (
+  supajump.dynamic_roles_enabled ()
   and (
     -- Organization primary owner can edit org roles
     exists (
@@ -1520,7 +1953,7 @@ using (
 )
 with
   check (
-    supajump.dynamic_roles_enabled()
+    supajump.dynamic_roles_enabled ()
     and (
       -- Same check for the updated values
       exists (
@@ -1545,7 +1978,7 @@ with
   );
 
 create policy "roles_delete_simple" on public.roles for delete to authenticated using (
-  supajump.dynamic_roles_enabled()
+  supajump.dynamic_roles_enabled ()
   and (
     -- Organization primary owner can delete org roles
     exists (
@@ -1622,7 +2055,7 @@ select
 create policy "role_permissions_insert_simple" on public.role_permissions for insert to authenticated
 with
   check (
-    supajump.dynamic_roles_enabled()
+    supajump.dynamic_roles_enabled ()
     and (
       -- Organization primary owner can create org role permissions
       exists (
@@ -1647,10 +2080,9 @@ with
     )
   );
 
-create policy "role_permissions_update_simple" on public.role_permissions
-for update to authenticated
-using (
-  supajump.dynamic_roles_enabled()
+create policy "role_permissions_update_simple" on public.role_permissions for
+update to authenticated using (
+  supajump.dynamic_roles_enabled ()
   and (
     -- Organization primary owner can edit org role permissions
     exists (
@@ -1676,7 +2108,7 @@ using (
 )
 with
   check (
-    supajump.dynamic_roles_enabled()
+    supajump.dynamic_roles_enabled ()
     and (
       -- Same check for the updated values
       exists (
@@ -1701,7 +2133,7 @@ with
   );
 
 create policy "role_permissions_delete_simple" on public.role_permissions for delete to authenticated using (
-  supajump.dynamic_roles_enabled()
+  supajump.dynamic_roles_enabled ()
   and (
     -- Organization primary owner can delete org role permissions
     exists (
