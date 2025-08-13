@@ -809,6 +809,10 @@ create unique index if not exists idx_roles_org_scope_name_team_null on public.r
 where
   team_id is null;
 
+create unique index if not exists idx_roles_org_team_scope_name_team_not_null on public.roles (org_id, team_id, scope, name)
+where
+  team_id is not null;
+
 -- Partial indexes for role_permissions unique constraints
 create unique index if not exists idx_role_permissions_org_team_role_resource_action_team_not_null on public.role_permissions (org_id, team_id, role_id, resource, action)
 where
