@@ -1697,6 +1697,9 @@ set
   end;
 $$;
 
+grant
+execute on function public.update_org_memberships_role (uuid, uuid, uuid[], boolean) to authenticated;
+
 create
 or replace function public.update_team_memberships_role (
   team_id uuid,
@@ -1794,7 +1797,8 @@ declare
   role_uuid uuid;
   member_id uuid;
 begin
-  perform pg_advisory_xact_lock(hashtext(org_id::text));
+  -- Better: Use stable 64-bit hash
+  perform pg_advisory_xact_lock(hashtextextended(org_id::text, 42));
   -- Verify permission to manage this org
   if not exists (
     select 1 from public.organizations o
