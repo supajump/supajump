@@ -435,15 +435,173 @@ values
 do nothing;
 
 -- Unified seeder from catalog (idempotent, transactional, RLS-safe)
-create or replace function supajump.seed_from_catalog (
-  p_scope text,            -- 'organization' | 'team'
-  p_id uuid,               -- org_id or team_id depending on scope
-  p_prune boolean default false  -- if true, remove perms not in catalog for the catalog-managed roles
-) returns void
-language plpgsql
-security definer
-set search_path = public, supajump
-as $$
+-- create
+-- or replace function supajump.seed_from_catalog (
+--   p_scope text, -- 'organization' | 'team'
+--   p_id uuid, -- org_id or team_id depending on scope
+--   p_prune boolean default false -- if true, remove perms not in catalog for the catalog-managed roles
+-- ) returns void language plpgsql security definer
+-- set
+--   search_path = public,
+--   supajump as $$
+-- declare
+--   v_org_id    uuid;
+--   v_team_id   uuid;
+--   v_owner_uid uuid;
+-- begin
+--   if p_scope not in ('organization','team') then
+--     raise exception 'Invalid scope: %, must be organization|team', p_scope;
+--   end if;
+--   -- Avoid duplicate seeding under concurrency
+--   perform pg_advisory_xact_lock(hashtext(p_scope || ':' || p_id::text));
+--   if p_scope = 'organization' then
+--     v_org_id := p_id;
+--     select primary_owner_user_id
+--       into v_owner_uid
+--     from public.organizations
+--     where id = v_org_id;
+--     if v_owner_uid is null then
+--       raise exception 'Organization % not found', v_org_id;
+--     end if;
+--     -- Upsert ORG roles from catalog (partial-unique arbiter WITH predicate)
+--     with upsert_roles as (
+--       insert into public.roles (scope, org_id, team_id, name, display_name, description)
+--       select 'organization', v_org_id, null, rc.name, rc.display_name, rc.description
+--       from supajump.role_catalog rc
+--       where rc.scope = 'organization'
+--       on conflict (org_id, scope, name) where team_id is null
+--       do update set
+--         display_name = excluded.display_name,
+--         description  = excluded.description
+--       returning id, name
+--     ),
+--     role_map as (
+--       -- All org roles after upsert (existing + newly inserted)
+--       select r.id, r.name
+--       from public.roles r
+--       where r.org_id = v_org_id
+--         and r.scope  = 'organization'
+--         and r.team_id is null
+--     )
+--     insert into public.role_permissions (role_id, org_id, team_id, scope, resource, action, cascade_down, target_kind)
+--     select rm.id, v_org_id, null, pc.perm_scope, pc.resource, pc.action, pc.cascade_down, pc.target_kind
+--     from supajump.permission_catalog pc
+--     join role_map rm on rm.name = pc.role_name
+--     where pc.scope = 'organization'
+--     on conflict (org_id, role_id, resource, action) where team_id is null
+--     do nothing;
+--     if p_prune then
+--       -- Remove permissions not present in the catalog for catalog-managed roles
+--       delete from public.role_permissions rp
+--       using public.roles r
+--       where r.id = rp.role_id
+--         and r.org_id = v_org_id
+--         and r.scope  = 'organization'
+--         and rp.team_id is null
+--         and not exists (
+--           select 1
+--           from supajump.permission_catalog pc
+--           where pc.scope      = 'organization'
+--             and pc.role_name  = r.name
+--             and pc.resource   = rp.resource
+--             and pc.action     = rp.action
+--             and pc.perm_scope = rp.scope
+--         );
+--     end if;
+--     -- Ensure primary owner has membership + org 'owner' role
+--     insert into public.org_memberships (org_id, user_id)
+--     values (v_org_id, v_owner_uid)
+--     on conflict (org_id, user_id) do nothing;
+--     insert into public.org_member_roles (role_id, org_member_id, org_id)
+--     select r.id, om.id, v_org_id
+--     from public.roles r
+--     join public.org_memberships om
+--       on om.org_id = v_org_id and om.user_id = v_owner_uid
+--     where r.org_id = v_org_id
+--       and r.scope  = 'organization'
+--       and r.team_id is null
+--       and r.name   = 'owner'
+--     on conflict (role_id, org_member_id) do nothing;
+--   else
+--     -- TEAM scope
+--     v_team_id := p_id;
+--     select t.org_id, t.primary_owner_user_id
+--       into v_org_id, v_owner_uid
+--     from public.teams t
+--     where t.id = v_team_id;
+--     if v_org_id is null then
+--       raise exception 'Team % not found', v_team_id;
+--     end if;
+--     -- Upsert TEAM roles from catalog (partial-unique arbiter WITH predicate)
+--     with upsert_roles as (
+--       insert into public.roles (scope, org_id, team_id, name, display_name, description)
+--       select 'team', v_org_id, v_team_id, rc.name, rc.display_name, rc.description
+--       from supajump.role_catalog rc
+--       where rc.scope = 'team'
+--       on conflict (org_id, team_id, scope, name) where team_id is not null
+--       do update set
+--         display_name = excluded.display_name,
+--         description  = excluded.description
+--       returning id, name
+--     ),
+--     role_map as (
+--       select r.id, r.name
+--       from public.roles r
+--       where r.org_id  = v_org_id
+--         and r.team_id = v_team_id
+--         and r.scope   = 'team'
+--     )
+--     insert into public.role_permissions (role_id, org_id, team_id, scope, resource, action, cascade_down, target_kind)
+--     select rm.id, v_org_id, v_team_id, pc.perm_scope, pc.resource, pc.action, pc.cascade_down, pc.target_kind
+--     from supajump.permission_catalog pc
+--     join role_map rm on rm.name = pc.role_name
+--     where pc.scope = 'team'
+--     on conflict (org_id, team_id, role_id, resource, action) where team_id is not null
+--     do nothing;
+--     if p_prune then
+--       delete from public.role_permissions rp
+--       using public.roles r
+--       where r.id = rp.role_id
+--         and r.org_id  = v_org_id
+--         and r.team_id = v_team_id
+--         and r.scope   = 'team'
+--         and not exists (
+--           select 1
+--           from supajump.permission_catalog pc
+--           where pc.scope      = 'team'
+--             and pc.role_name  = r.name
+--             and pc.resource   = rp.resource
+--             and pc.action     = rp.action
+--             and pc.perm_scope = rp.scope
+--         );
+--     end if;
+--     -- Ensure team primary owner is a member + has team 'owner' role
+--     insert into public.team_memberships (team_id, user_id)
+--     values (v_team_id, v_owner_uid)
+--     on conflict (team_id, user_id) do nothing;
+--     insert into public.team_member_roles (role_id, team_member_id, team_id)
+--     select r.id, tm.id, v_team_id
+--     from public.roles r
+--     join public.team_memberships tm
+--       on tm.team_id = v_team_id and tm.user_id = v_owner_uid
+--     where r.org_id  = v_org_id
+--       and r.team_id = v_team_id
+--       and r.scope   = 'team'
+--       and r.name    = 'owner'
+--     on conflict (role_id, team_member_id) do nothing;
+--   end if;
+-- end;
+-- $$;
+-- Unified seeder from catalog (idempotent, concurrent-safe, RLS-proof)
+create
+or replace function supajump.seed_from_catalog (
+  p_scope text, -- 'organization' | 'team'
+  p_id uuid, -- org_id or team_id depending on scope
+  p_prune boolean default false -- prune perms not in catalog (only catalog-managed roles)
+) returns void language plpgsql security definer
+set
+  search_path = public,
+  supajump as $$
 declare
   v_org_id    uuid;
   v_team_id   uuid;
@@ -459,8 +617,7 @@ begin
   if p_scope = 'organization' then
     v_org_id := p_id;
 
-    select primary_owner_user_id
-      into v_owner_uid
+    select primary_owner_user_id into v_owner_uid
     from public.organizations
     where id = v_org_id;
 
@@ -468,46 +625,57 @@ begin
       raise exception 'Organization % not found', v_org_id;
     end if;
 
-    -- Upsert ORG roles from catalog (partial-unique arbiter WITH predicate)
-    with upsert_roles as (
-      insert into public.roles (scope, org_id, team_id, name, display_name, description)
-      select 'organization', v_org_id, null, rc.name, rc.display_name, rc.description
-      from supajump.role_catalog rc
-      where rc.scope = 'organization'
-      on conflict (org_id, scope, name) where team_id is null
-      do update set
-        display_name = excluded.display_name,
-        description  = excluded.description
-      returning id, name
-    ),
-    role_map as (
-      -- All org roles after upsert (existing + newly inserted)
-      select r.id, r.name
-      from public.roles r
-      where r.org_id = v_org_id
-        and r.scope  = 'organization'
-        and r.team_id is null
-    )
-    insert into public.role_permissions (role_id, org_id, team_id, scope, resource, action, cascade_down, target_kind)
-    select rm.id, v_org_id, null, pc.perm_scope, pc.resource, pc.action, pc.cascade_down, pc.target_kind
-    from supajump.permission_catalog pc
-    join role_map rm on rm.name = pc.role_name
-    where pc.scope = 'organization'
-    on conflict (org_id, role_id, resource, action) where team_id is null
-    do nothing;
+    /* -----------------------------------------------------------
+       ROLES (ORG): insert missing via anti-join, then sync labels
+       ----------------------------------------------------------- */
+    insert into public.roles (scope, org_id, team_id, name, display_name, description)
+    select 'organization', v_org_id, null, rc.name, rc.display_name, rc.description
+    from supajump.role_catalog rc
+    left join public.roles r
+      on r.org_id = v_org_id and r.scope='organization' and r.team_id is null and r.name = rc.name
+    where rc.scope='organization'
+      and r.id is null;
 
+    update public.roles r
+    set display_name = rc.display_name,
+        description  = rc.description
+    from supajump.role_catalog rc
+    where rc.scope='organization'
+      and r.org_id = v_org_id
+      and r.scope  = 'organization'
+      and r.team_id is null
+      and r.name   = rc.name;
+
+    /* -----------------------------------------------------------
+       PERMISSIONS (ORG): insert missing via anti-join
+       ----------------------------------------------------------- */
+    insert into public.role_permissions (role_id, org_id, team_id, scope, resource, action, cascade_down, target_kind)
+    select r.id, v_org_id, null, pc.perm_scope, pc.resource, pc.action, pc.cascade_down, pc.target_kind
+    from supajump.permission_catalog pc
+    join public.roles r
+      on r.org_id = v_org_id and r.scope='organization' and r.team_id is null and r.name = pc.role_name
+    left join public.role_permissions rp
+      on rp.org_id = v_org_id and rp.team_id is null
+     and rp.role_id = r.id and rp.resource = pc.resource and rp.action = pc.action and rp.scope = pc.perm_scope
+    where pc.scope='organization'
+      and rp.id is null;
+
+    /* -----------------------------------------------------------
+       PRUNE (ORG): only catalog-managed roles; leave custom alone
+       ----------------------------------------------------------- */
     if p_prune then
-      -- Remove permissions not present in the catalog for catalog-managed roles
       delete from public.role_permissions rp
       using public.roles r
       where r.id = rp.role_id
         and r.org_id = v_org_id
         and r.scope  = 'organization'
         and rp.team_id is null
+        and exists (select 1 from supajump.role_catalog rc
+                    where rc.scope='organization' and rc.name = r.name)
         and not exists (
           select 1
           from supajump.permission_catalog pc
-          where pc.scope      = 'organization'
+          where pc.scope='organization'
             and pc.role_name  = r.name
             and pc.resource   = rp.resource
             and pc.action     = rp.action
@@ -515,7 +683,9 @@ begin
         );
     end if;
 
-    -- Ensure primary owner has membership + org 'owner' role
+    /* -----------------------------------------------------------
+       OWNER membership + role (real unique constraints → safe)
+       ----------------------------------------------------------- */
     insert into public.org_memberships (org_id, user_id)
     values (v_org_id, v_owner_uid)
     on conflict (org_id, user_id) do nothing;
@@ -544,33 +714,44 @@ begin
       raise exception 'Team % not found', v_team_id;
     end if;
 
-    -- Upsert TEAM roles from catalog (partial-unique arbiter WITH predicate)
-    with upsert_roles as (
-      insert into public.roles (scope, org_id, team_id, name, display_name, description)
-      select 'team', v_org_id, v_team_id, rc.name, rc.display_name, rc.description
-      from supajump.role_catalog rc
-      where rc.scope = 'team'
-      on conflict (org_id, team_id, scope, name) where team_id is not null
-      do update set
-        display_name = excluded.display_name,
-        description  = excluded.description
-      returning id, name
-    ),
-    role_map as (
-      select r.id, r.name
-      from public.roles r
-      where r.org_id  = v_org_id
-        and r.team_id = v_team_id
-        and r.scope   = 'team'
-    )
-    insert into public.role_permissions (role_id, org_id, team_id, scope, resource, action, cascade_down, target_kind)
-    select rm.id, v_org_id, v_team_id, pc.perm_scope, pc.resource, pc.action, pc.cascade_down, pc.target_kind
-    from supajump.permission_catalog pc
-    join role_map rm on rm.name = pc.role_name
-    where pc.scope = 'team'
-    on conflict (org_id, team_id, role_id, resource, action) where team_id is not null
-    do nothing;
+    /* -----------------------------------------------------------
+       ROLES (TEAM): insert missing via anti-join, then sync labels
+       ----------------------------------------------------------- */
+    insert into public.roles (scope, org_id, team_id, name, display_name, description)
+    select 'team', v_org_id, v_team_id, rc.name, rc.display_name, rc.description
+    from supajump.role_catalog rc
+    left join public.roles r
+      on r.org_id = v_org_id and r.team_id = v_team_id and r.scope='team' and r.name = rc.name
+    where rc.scope='team'
+      and r.id is null;
 
+    update public.roles r
+    set display_name = rc.display_name,
+        description  = rc.description
+    from supajump.role_catalog rc
+    where rc.scope='team'
+      and r.org_id  = v_org_id
+      and r.team_id = v_team_id
+      and r.scope   = 'team'
+      and r.name    = rc.name;
+
+    /* -----------------------------------------------------------
+       PERMISSIONS (TEAM): insert missing via anti-join
+       ----------------------------------------------------------- */
+    insert into public.role_permissions (role_id, org_id, team_id, scope, resource, action, cascade_down, target_kind)
+    select r.id, v_org_id, v_team_id, pc.perm_scope, pc.resource, pc.action, pc.cascade_down, pc.target_kind
+    from supajump.permission_catalog pc
+    join public.roles r
+      on r.org_id = v_org_id and r.team_id = v_team_id and r.scope='team' and r.name = pc.role_name
+    left join public.role_permissions rp
+      on rp.org_id = v_org_id and rp.team_id = v_team_id
+     and rp.role_id = r.id and rp.resource = pc.resource and rp.action = pc.action and rp.scope = pc.perm_scope
+    where pc.scope='team'
+      and rp.id is null;
+
+    /* -----------------------------------------------------------
+       PRUNE (TEAM): only catalog-managed roles; leave custom alone
+       ----------------------------------------------------------- */
     if p_prune then
       delete from public.role_permissions rp
       using public.roles r
@@ -578,10 +759,12 @@ begin
         and r.org_id  = v_org_id
         and r.team_id = v_team_id
         and r.scope   = 'team'
+        and exists (select 1 from supajump.role_catalog rc
+                    where rc.scope='team' and rc.name = r.name)
         and not exists (
           select 1
           from supajump.permission_catalog pc
-          where pc.scope      = 'team'
+          where pc.scope='team'
             and pc.role_name  = r.name
             and pc.resource   = rp.resource
             and pc.action     = rp.action
@@ -589,7 +772,9 @@ begin
         );
     end if;
 
-    -- Ensure team primary owner is a member + has team 'owner' role
+    /* -----------------------------------------------------------
+       OWNER membership + role (real unique constraints → safe)
+       ----------------------------------------------------------- */
     insert into public.team_memberships (team_id, user_id)
     values (v_team_id, v_owner_uid)
     on conflict (team_id, user_id) do nothing;
@@ -607,7 +792,6 @@ begin
   end if;
 end;
 $$;
-
 
 -- RLS-proof
 alter function supajump.seed_from_catalog (text, uuid, boolean) owner to postgres;
@@ -957,8 +1141,8 @@ as $$
   SELECT group_id, scope
   FROM   supajump.user_permissions_view
   WHERE  user_id  = auth.uid()
-    AND  resource = _resource
-    AND  action   = _action;
+    AND  (resource = _resource OR _resource = 'all')
+    AND  (action   = _action OR _action = 'all');
 $$;
 
 -- Helper function to determine if a user has a permission for a resource/action for use in RLS
@@ -991,8 +1175,8 @@ OR REPLACE FUNCTION supajump.has_permission (
       SELECT 1
       FROM supajump.user_permissions_view p
       WHERE p.user_id = auth.uid()
-        AND p.resource = _resource
-        AND p.action = _action
+        AND (p.resource = _resource OR _resource = 'all')
+        AND (p.action = _action OR _action = 'all')
         AND (
           p.group_id = _org_id
           OR (_team_id IS NOT NULL AND p.group_id = _team_id)
@@ -1660,8 +1844,8 @@ or replace function public.create_organization_and_add_current_user_as_owner (
   name text,
   type text default 'organization'
 ) returns uuid language plpgsql security definer
-set search_path = public
- as $$
+set
+  search_path = public as $$
 declare
   new_org_id uuid;
 begin
