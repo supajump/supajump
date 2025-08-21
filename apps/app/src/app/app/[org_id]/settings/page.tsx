@@ -1,11 +1,11 @@
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
-import UpdateOrganizationForm from '@/features/organizations/update-organization-form'
-import { DeleteOrganizationButton } from '@/features/organizations/delete-organization-button'
-import { HydrationBoundary, dehydrate } from '@tanstack/react-query'
-import { getQueryClient } from '@/components/providers/get-query-client'
-import { api } from '@/queries'
-import { organizationsKeys } from '@/queries/keys'
+import { getQueryClient } from "@/components/providers/get-query-client"
+import { DeleteOrganizationButton } from "@/features/organizations/delete-organization-button"
+import UpdateOrganizationForm from "@/features/organizations/update-organization-form"
+import { createClient } from "@/lib/supabase/server"
+import { api } from "@/queries"
+import { organizationsKeys } from "@/queries/keys"
+import { HydrationBoundary, dehydrate } from "@tanstack/react-query"
+import { redirect } from "next/navigation"
 
 export default async function OrganizationSettingsPage({
   params,
@@ -19,25 +19,30 @@ export default async function OrganizationSettingsPage({
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect('/auth/login')
+    redirect("/auth/login")
   }
 
   const queryClient = getQueryClient()
   await queryClient.prefetchQuery({
     // eslint-disable-next-line @tanstack/query/exhaustive-deps
-    queryKey: [...organizationsKeys.detail(org_id), supabase.supabaseUrl],
+    queryKey: [
+      ...organizationsKeys.detail(org_id),
+      process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+    ],
     queryFn: () => api.organizations.getById(supabase, org_id),
   })
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <div className='min-h-screen bg-background'>
-        <div className='container mx-auto p-6 max-w-xl space-y-10'>
-          <h1 className='text-3xl font-bold'>Organization Settings</h1>
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto p-6 max-w-xl space-y-10">
+          <h1 className="text-3xl font-bold">Organization Settings</h1>
           <UpdateOrganizationForm orgId={org_id} />
-          <div className='pt-6 border-t space-y-2'>
-            <h2 className='text-xl font-semibold text-destructive'>Danger Zone</h2>
-            <p className='text-sm text-muted-foreground'>
+          <div className="pt-6 border-t space-y-2">
+            <h2 className="text-xl font-semibold text-destructive">
+              Danger Zone
+            </h2>
+            <p className="text-sm text-muted-foreground">
               Deleting your organization removes all teams and related data
               permanently.
             </p>

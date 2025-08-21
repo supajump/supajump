@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer'
-import aws from '@aws-sdk/client-ses'
+import { SendEmailCommand, SESv2Client } from '@aws-sdk/client-sesv2'
 import { Resend } from 'resend'
 
 import { Result, ok, err } from '../result'
@@ -15,8 +15,7 @@ async function sendWithSes(
   options: EmailOptions
 ): Promise<Result<unknown, Error>> {
   try {
-    const ses = new aws.SES({
-      apiVersion: '2010-12-01',
+    const sesClient = new SESv2Client({
       region: process.env.AWS_REGION || '',
       credentials: {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
@@ -25,9 +24,8 @@ async function sendWithSes(
     })
 
     const transporter = nodemailer.createTransport({
-      SES: { ses, aws },
-      sendingRate: 1
-    })
+      SES: { sesClient, SendEmailCommand },
+    });
 
     const result = await transporter.sendMail(options)
     return ok(result)
