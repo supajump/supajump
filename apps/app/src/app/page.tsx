@@ -2,14 +2,6 @@
 
 import React, { useState } from "react"
 
-/**
- * Supajump Marketing Landing Page
- * --------------------------------
- * Drop this component into apps/app/app/page.tsx (or any route) in your Next.js 15 app.
- * Uses only Tailwind classes, no external UI libs required.
- *
- * Tip: If you want this as a standalone page, export default and render directly.
- */
 export default function SupajumpLandingPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-950 to-black text-zinc-100">
@@ -85,10 +77,16 @@ function Hero() {
           DX — all wired up in a Turborepo.
         </p>
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <a
+            href="/auth/login"
+            className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 font-medium text-black hover:bg-emerald-400"
+          >
+            Get Started
+          </a>
           <CopyButton
             label="Create a Supajump app"
             toCopy={"pnpm create supajump-app my-app"}
-            className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 font-medium text-black hover:bg-emerald-400"
+            className="inline-flex items-center gap-2 rounded-xl border border-zinc-700/70 bg-zinc-900 px-5 py-3 font-medium hover:border-zinc-600"
           >
             <TerminalIcon className="h-4 w-4" />
             pnpm create supajump-app my-app
