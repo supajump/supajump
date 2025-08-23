@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     title: "Supajump - Multi-tenant SaaS Starter Kit",
     description:
       "Supabase and Next.js multi-tenant SaaS starter kit with Organizations, Teams, RBAC, and more.",
-    images: ["/og-image.png"],
+    images: ["/og.png"],
   },
 }
 
