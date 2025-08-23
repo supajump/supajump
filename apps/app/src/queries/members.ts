@@ -6,11 +6,11 @@ async function getMembers(
   orgId: string,
 ) {
   const { data, error } = await supabase
-    .from('org_memberships')
-    .select('*, profiles!org_memberships_profiles_fkey(*)')
-    .eq('org_id', orgId);
+    .from("org_memberships")
+    .select("*, profiles!org_memberships_profiles_fkey(*)")
+    .eq("org_id", orgId);
   if (error) throw new Error(error.message);
-  return (data ?? []).map((m) => m.profiles);
+  return (data ?? []).map((m) => m.profiles)
 }
 
 export const members = {

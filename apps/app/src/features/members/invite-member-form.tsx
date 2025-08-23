@@ -1,27 +1,27 @@
-'use client'
+"use client"
 
-import { useState } from 'react'
-import { useForm, useFieldArray } from 'react-hook-form'
-import { createClient } from '@/lib/supabase/client'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Form,
+  FormControl,
   FormField,
   FormItem,
   FormLabel,
-  FormControl,
   FormMessage,
-} from '@/components/ui/form'
+} from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Select,
-  SelectTrigger,
-  SelectValue,
   SelectContent,
   SelectItem,
-} from '@/components/ui/select'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { createClient } from "@/lib/supabase/client"
+import { useState } from "react"
+import { useFieldArray, useForm } from "react-hook-form"
 
 interface TeamRole {
   teamId: string
@@ -49,17 +49,21 @@ export default function InviteMemberForm({
 }: InviteMemberFormProps) {
   const supabase = createClient()
   const form = useForm<FormValues>({
-    defaultValues: { email: '', orgRoleIds: [], teamRoles: [] },
+    defaultValues: { email: "", orgRoleIds: [], teamRoles: [] },
   })
-  const { fields: teamRoleFields, append, remove } = useFieldArray({
+  const {
+    fields: teamRoleFields,
+    append,
+    remove,
+  } = useFieldArray({
     control: form.control,
-    name: 'teamRoles',
+    name: "teamRoles",
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  const addTeamRole = () => append({ teamId: '', roleIds: [] })
+  const addTeamRole = () => append({ teamId: "", roleIds: [] })
 
   async function onSubmit(values: FormValues) {
     setIsLoading(true)
@@ -68,14 +72,14 @@ export default function InviteMemberForm({
 
     const teamAssignments = values.teamRoles
       .filter((tr) => tr.teamId && tr.roleIds.length > 0)
-      .flatMap((tr) => tr.roleIds.map((r) => ({ project_id: tr.teamId, role: r })))
+      .flatMap((tr) => tr.roleIds.map((r) => ({ team_id: tr.teamId, role: r })))
 
-    const { error } = await supabase.rpc('create_org_invite', {
+    const { error } = await supabase.rpc("create_org_invite", {
       input_org_id: orgId,
       org_member_role_id: values.orgRoleIds[0],
       invitee_email: values.email,
-      invitation_type: 'one-time',
-      project_member_roles: teamAssignments.length > 0 ? teamAssignments : null,
+      invitation_type: "one-time",
+      team_member_roles: teamAssignments.length > 0 ? teamAssignments : null,
     })
 
     if (error) {
@@ -84,7 +88,7 @@ export default function InviteMemberForm({
       return
     }
 
-    setSuccess('Invitation sent')
+    setSuccess("Invitation sent")
     form.reset()
     setIsLoading(false)
   }
@@ -95,7 +99,7 @@ export default function InviteMemberForm({
         <FormField
           control={form.control}
           name="email"
-          rules={{ required: 'Email is required' }}
+          rules={{ required: "Email is required" }}
           render={({ field }) => (
             <FormItem>
               <FormLabel>Email</FormLabel>
@@ -112,7 +116,7 @@ export default function InviteMemberForm({
             <div key={role.id} className="flex items-center gap-2">
               <Checkbox
                 id={`org-role-${role.id}`}
-                {...form.register('orgRoleIds')}
+                {...form.register("orgRoleIds")}
                 value={role.id}
               />
               <label htmlFor={`org-role-${role.id}`}>{role.name}</label>
@@ -122,7 +126,12 @@ export default function InviteMemberForm({
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <Label>Team Memberships</Label>
-            <Button type="button" size="sm" variant="secondary" onClick={addTeamRole}>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={addTeamRole}
+            >
               Add Team
             </Button>
           </div>
@@ -131,7 +140,7 @@ export default function InviteMemberForm({
               <FormField
                 control={form.control}
                 name={`teamRoles.${index}.teamId` as const}
-                rules={{ required: 'Team is required' }}
+                rules={{ required: "Team is required" }}
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Team</FormLabel>
@@ -155,18 +164,27 @@ export default function InviteMemberForm({
               />
               <div className="space-y-2">
                 <Label>Roles</Label>
-                {teamRolesMap[form.watch(`teamRoles.${index}.teamId`) ?? '']?.map((r) => (
+                {teamRolesMap[
+                  form.watch(`teamRoles.${index}.teamId`) ?? ""
+                ]?.map((r) => (
                   <div key={r.id} className="flex items-center gap-2">
                     <Checkbox
                       id={`team-${index}-role-${r.id}`}
                       {...form.register(`teamRoles.${index}.roleIds` as const)}
                       value={r.id}
                     />
-                    <label htmlFor={`team-${index}-role-${r.id}`}>{r.name}</label>
+                    <label htmlFor={`team-${index}-role-${r.id}`}>
+                      {r.name}
+                    </label>
                   </div>
                 ))}
               </div>
-              <Button type="button" variant="outline" size="sm" onClick={() => remove(index)}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => remove(index)}
+              >
                 Remove
               </Button>
             </div>
@@ -175,7 +193,7 @@ export default function InviteMemberForm({
         {error && <p className="text-sm text-red-500">{error}</p>}
         {success && <p className="text-sm text-green-500">{success}</p>}
         <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? 'Sending...' : 'Send Invite'}
+          {isLoading ? "Sending..." : "Send Invite"}
         </Button>
       </form>
     </Form>
