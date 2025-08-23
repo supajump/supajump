@@ -241,12 +241,12 @@ function HowItWorks() {
     {
       title: "Create",
       body: "Scaffold a new project with the CLI.",
-      code: "pnpm create supajump-app my-app",
+      code: "npx @supajump/create-app my-app",
     },
     {
       title: "Develop",
       body: "Run Supabase + the app locally.",
-      code: "supabase start\npnpm dev",
+      code: "cd my-app && supabase start && pnpm dev",
     },
     {
       title: "Ship",
@@ -439,11 +439,11 @@ function FAQ() {
       <div className="mt-8 flex items-center justify-center gap-3">
         <CopyButton
           label="Install CLI"
-          toCopy={"pnpm create supajump-app my-app"}
+          toCopy={"npx @supajump/create-app my-app"}
           className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 font-medium text-black hover:bg-emerald-400"
         >
           <TerminalIcon className="h-4 w-4" />
-          pnpm create supajump-app my-app
+          npx @supajump/create-app my-app
         </CopyButton>
         <a
           href="https://github.com/supajump/supajump"
