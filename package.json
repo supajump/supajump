@@ -1,6 +1,6 @@
 {
   "name": "supajump",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "description": "Multi-tenant SaaS Starter Kit Monorepo",
   "scripts": {
