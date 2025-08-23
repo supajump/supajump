@@ -1,5 +1,6 @@
 "use client"
 
+import { GlobeIcon } from "lucide-react"
 import React, { useState } from "react"
 
 export default function SupajumpLandingPage() {
@@ -22,8 +23,11 @@ function Header() {
     <header className="sticky top-0 z-50 backdrop-blur supports-[backdrop-filter]:bg-zinc-950/70 border-b border-zinc-800/60">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <a href="#" className="flex items-center gap-2">
-          <LogoMark className="h-6 w-6" />
-          <span className="font-semibold tracking-tight">Supajump</span>
+          <LogoMark className="h-5 w-5 text-emerald-400 transform -rotate-140" />
+          <div className="flex items-center">
+            <span className="font-semibold tracking-tight">Supa</span>
+            <span className="text-emerald-400 font-bold">jump</span>
+          </div>
           <span className="ml-2 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-400 border border-emerald-700/40">
             Multi‑tenant SaaS Starter
           </span>
@@ -635,31 +639,32 @@ function CopyInline({
 
 function LogoMark({ className = "" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden>
-      <defs>
-        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#34d399" />
-          <stop offset="100%" stopColor="#22d3ee" />
-        </linearGradient>
-      </defs>
-      <rect
-        x="2"
-        y="2"
-        width="20"
-        height="20"
-        rx="5"
-        fill="url(#g)"
-        opacity="0.2"
-      />
-      <path
-        d="M6 16l4-8 4 8m-1.5-3h-5"
-        stroke="url(#g)"
-        strokeWidth="2"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    // <svg viewBox="0 0 24 24" className={className} aria-hidden>
+    //   <defs>
+    //     <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+    //       <stop offset="0%" stopColor="#34d399" />
+    //       <stop offset="100%" stopColor="#22d3ee" />
+    //     </linearGradient>
+    //   </defs>
+    //   <rect
+    //     x="2"
+    //     y="2"
+    //     width="20"
+    //     height="20"
+    //     rx="5"
+    //     fill="url(#g)"
+    //     opacity="0.2"
+    //   />
+    //   <path
+    //     d="M6 16l4-8 4 8m-1.5-3h-5"
+    //     stroke="url(#g)"
+    //     strokeWidth="2"
+    //     fill="none"
+    //     strokeLinecap="round"
+    //     strokeLinejoin="round"
+    //   />
+    // </svg>
+    <GlobeIcon className={className} />
   )
 }
 
