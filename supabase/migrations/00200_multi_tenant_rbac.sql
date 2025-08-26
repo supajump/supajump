@@ -26,6 +26,7 @@ grant usage on schema supajump to postgres;
 -- implicit as owner
 -- Optional: allow your service role to read/write if you manage catalogs via API
 grant usage on schema supajump to service_role;
+grant usage on schema supajump to authenticated;
 
 -- Table/sequence privileges
 revoke all on all tables in schema supajump
