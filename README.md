@@ -1,107 +1,88 @@
-# Supajump
+# WorkClear
 
-Supajump is a multitenant starter kit for building SaaS applications with [Supabase](https://supabase.com) and [Next.js](https://nextjs.org). It provides a ready-to-run database schema, authentication flows and example UI so you can jump straight into product development.
+**Know a contractor is cleared before work starts.**
 
-This is a [Turborepo](https://turbo.build/repo) monorepo, allowing you to scale with multiple apps and shared packages.
+WorkClear is a multi-tenant compliance operations SaaS for property operators. It is built on the [Supajump](https://supajump.dev) starter kit (Next.js 15 + Supabase) in a Turborepo monorepo.
 
-## Features
+This repository contains the WorkClear product layer — vendor registry, document compliance, dispatch approval, reminders, billing, and platform admin — extending Supajump's auth, RBAC, and Stripe infrastructure.
 
-- **Turborepo Monorepo** for scalable app and package management
-- **Next.js App Router** with React Server Components
-- **Supabase integration** for client and server helpers
-- **Multi-tenant schema** including organizations, teams and posts
-- **Dynamic role-based access control** with flexible permissions stored in database
-- **Query helpers** exposed via the `api` object
-- **CLI tool** for quick project scaffolding
+---
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [`docs/PRODUCT.md`](docs/PRODUCT.md) | Product scope, personas, user journeys |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Technical architecture |
+| [`docs/IMPLEMENTATION-PLAN.md`](docs/IMPLEMENTATION-PLAN.md) | Sprint/PR plan (VR-001 → VR-041) |
+| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | Local setup and dev workflow |
+| [`docs/DOMAIN-GLOSSARY.md`](docs/DOMAIN-GLOSSARY.md) | Term definitions |
+| [`docs/RBAC.md`](docs/RBAC.md) | Permissions reference |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Architecture decision log |
+| [`docs/BILLING-SETUP.md`](docs/BILLING-SETUP.md) | Stripe configuration guide |
+| [`docs/AGENT-WORKFLOW.md`](docs/AGENT-WORKFLOW.md) | AI-assisted development guide |
+| [`docs/QA-CHECKLIST.md`](docs/QA-CHECKLIST.md) | Pre-release manual QA |
+
+---
+
+## Quick Start
+
+See [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) for full setup.
+
+```bash
+pnpm install
+supabase start
+pnpm dev --filter @supajump/app
+```
+
+Copy Supabase credentials from `supabase status` into `apps/app/.env.local`.
+
+---
 
 ## Project Structure
 
 ```
 .
 ├── apps/
-│   └── app/                    # Next.js application
+│   └── app/                    # Next.js application (WorkClear UI)
 ├── packages/
-│   └── create-supajump-app/    # CLI for scaffolding new projects
+│   └── create-supajump-app/    # Supajump CLI (upstream)
 ├── supabase/                   # Database schemas and migrations
-├── turbo.json                  # Turborepo configuration
-└── pnpm-workspace.yaml         # Workspace configuration
+├── docs/                       # WorkClear documentation
+├── turbo.json
+└── pnpm-workspace.yaml
 ```
 
-## Quick Start
-
-### Using the CLI (Recommended)
-
-```bash
-npx @supajump/create-app my-app
-# or
-pnpm create @supajump/create-app my-app
-# or
-yarn create @supajump/create-app my-app
-```
-
-The CLI will:
-- Prompt for your preferred package manager
-- Create a new project with the Supajump template
-- Set up environment files
-- Optionally initialize git
-- Optionally install dependencies
-
-### Manual Setup
-
-1. Clone the repository
-   ```bash
-   git clone https://github.com/yourusername/supajump.git my-app
-   cd my-app
-   ```
-2. Install dependencies
-   ```bash
-   pnpm install
-   ```
-3. Start Supabase locally (requires the [Supabase CLI](https://supabase.com/docs/guides/cli))
-   ```bash
-   supabase start
-   ```
-4. Set up environment variables
-   ```bash
-   cd apps/app
-   cp .env.example .env.local
-   ```
-   Update `.env.local` with your Supabase credentials:
-   ```env
-   NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-   ```
-5. Run the development server
-   ```bash
-   pnpm dev
-   ```
-   Open [http://localhost:3000](http://localhost:3000) to view the app.
+---
 
 ## Monorepo Commands
 
 ```bash
-# From root directory
-pnpm dev              # Start all apps in development mode
-pnpm build            # Build all apps and packages
-pnpm lint             # Lint all apps and packages
-pnpm format           # Format code with Prettier
-
-# Run commands for specific apps/packages
-pnpm --filter @supajump/app dev     # Run only the Next.js app
-pnpm --filter @supajump/app build   # Build only the Next.js app
-
-# Database commands (from root)
-pnpm db:gen:types     # Generate TypeScript types from Supabase schema
+pnpm dev                          # Start all apps
+pnpm dev --filter @supajump/app   # Next.js app only
+pnpm build                        # Build all packages
+pnpm lint                         # ESLint (run before commits)
+pnpm db:gen:types                 # Regenerate Supabase TypeScript types
 ```
 
-## Data Access Helpers
+---
 
-Query functions are grouped under the `api` object in the Next.js app. For example:
+## Foundation (Supajump)
 
-```ts
-import { api } from '@/queries'
-const posts = await api.posts.getAll(supabase, orgId, teamId)
-const org = await api.organizations.getById(supabase, orgId)
-```
+WorkClear inherits from Supajump:
 
-This replaces the previous flat function imports.
+- Multi-tenant org model with dynamic RBAC
+- Supabase Auth + SSR middleware
+- Stripe billing tables and webhook handler
+- TanStack Query data layer with server prefetching
+- shadcn/ui component library
+
+See [`docs/ARCHITECTURE.md` §2](docs/ARCHITECTURE.md#2-foundation-supajump-shell) for the full reuse inventory.
+
+---
+
+## Implementation Status
+
+WorkClear is in **pre-implementation** (planning complete). Follow [`docs/IMPLEMENTATION-PLAN.md`](docs/IMPLEMENTATION-PLAN.md) starting with VR-001 (env setup) and VR-002 (rebrand).
+
+Release target: **`v0.1.0`** after VR-041 (compliance MVP + billing + platform admin).
