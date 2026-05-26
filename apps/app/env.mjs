@@ -1,37 +1,31 @@
-// src/env.mjs
-import { createEnv } from '@t3-oss/env-nextjs';
-import { z } from 'zod';
+import { createEnv } from "@t3-oss/env-nextjs"
+import { z } from "zod"
 
 export const env = createEnv({
-  /*
-   * Serverside Environment variables, not available on the client.
-   * Will throw if you access these variables on the client.
-   */
   server: {
-    SERVICE_ROLE: z.string().min(1),
+    APP_URL: z.string().url(),
+    SUPABASE_SERVICE_ROLE: z.string().min(1),
     EMAIL_API_KEY: z.string().min(1),
-    EMAIL_PROVIDER: z.enum(['ses', 'resend']).default('ses'),
+    EMAIL_PROVIDER: z.enum(["ses", "resend"]).default("ses"),
+    RESEND_API_KEY: z.string().min(1).optional(),
+    STRIPE_SECRET_KEY: z.string().min(1).optional(),
+    STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
   },
-  /*
-   * Environment variables available on the client (and server).
-   *
-   * 💡 You'll get type errors if these are not prefixed with NEXT_PUBLIC_.
-   */
   client: {
     NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
   },
-  /*
-   * Due to how Next.js bundles environment variables on Edge and Client,
-   * we need to manually destructure them to make sure all are included in bundle.
-   *
-   * 💡 You'll get type errors if not all variables from `server` & `client` are included here.
-   */
   runtimeEnv: {
+    APP_URL: process.env.APP_URL,
+    SUPABASE_SERVICE_ROLE:
+      process.env.SUPABASE_SERVICE_ROLE ?? process.env.SERVICE_ROLE,
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    SERVICE_ROLE: process.env.SERVICE_ROLE,
     EMAIL_API_KEY: process.env.EMAIL_API_KEY,
     EMAIL_PROVIDER: process.env.EMAIL_PROVIDER,
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+    STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
   },
-});
+  skipValidation: !!process.env.SKIP_ENV_VALIDATION,
+})

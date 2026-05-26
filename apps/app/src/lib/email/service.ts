@@ -38,7 +38,9 @@ async function sendWithResend(
   options: EmailOptions
 ): Promise<Result<unknown, Error>> {
   try {
-    const resend = new Resend(process.env.RESEND_API_KEY || '')
+    const resend = new Resend(
+      process.env.RESEND_API_KEY || process.env.EMAIL_API_KEY || ""
+    )
     const result = await resend.emails.send(options)
     return ok(result)
   } catch (error) {

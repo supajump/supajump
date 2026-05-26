@@ -4,6 +4,7 @@ import Stripe from "stripe"
 import type { Database, Tables, TablesInsert } from "@/lib/database.types"
 import { toDateTime } from "@/lib/utils"
 import { stripe } from "@/lib/stripe/config"
+import { env } from "../../../env.mjs"
 
 type Product = Tables<"billing_products">
 type Price = Tables<"billing_prices">
@@ -11,11 +12,11 @@ type Price = Tables<"billing_prices">
 // Change to control trial period length
 const TRIAL_PERIOD_DAYS = 0
 
-// Note: supabaseAdmin uses the SERVICE_ROLE_KEY which you must only use in a secure server-side context
+// Note: supabaseAdmin uses the service role key which you must only use in a secure server-side context
 // as it has admin privileges and overwrites RLS policies!
 export const supabaseAdmin = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.SERVICE_ROLE || ""
+  env.NEXT_PUBLIC_SUPABASE_URL,
+  env.SUPABASE_SERVICE_ROLE
 )
 
 const upsertProductRecord = async (product: Stripe.Product) => {
