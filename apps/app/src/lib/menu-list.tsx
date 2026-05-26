@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 // This is sample data.
 import { usePathname } from 'next/navigation';
+import { isUuid } from '@/lib/is-uuid';
 import {
   Frame,
   FileTextIcon,
@@ -38,6 +39,10 @@ export function useNavMain({
   team_id?: string | null;
 }) {
   const pathname = usePathname();
+  const activeTeamId = isUuid(team_id) ? team_id : null;
+  const postsBase = activeTeamId
+    ? `/app/${org_id}/${activeTeamId}/posts`
+    : `/app/${org_id}/posts`;
 
   return useMemo(
     () => [
@@ -46,21 +51,20 @@ export function useNavMain({
         url: '#',
         icon: FileTextIcon,
         isActive:
-          pathname?.includes(
-            `/app/${org_id}${team_id ? `/${team_id}` : ''}/posts`
-          ) || pathname?.includes(`/app/${org_id}/posts`),
+          pathname?.includes(postsBase) ||
+          pathname?.includes(`/app/${org_id}/posts`),
         items: [
           {
             title: 'All Posts',
-            url: `/app/${org_id}${team_id ? `/${team_id}` : ''}/posts`,
+            url: postsBase,
           },
           {
             title: 'New Post',
-            url: `/app/${org_id}${team_id ? `/${team_id}` : ''}/posts/new`,
+            url: `${postsBase}/new`,
           },
           {
             title: 'Post Settings',
-            url: `/app/${org_id}${team_id ? `/${team_id}` : ''}/posts/settings`,
+            url: `${postsBase}/settings`,
           },
         ],
       },
@@ -94,7 +98,7 @@ export function useNavMain({
         ],
       },
     ],
-    [pathname, org_id, team_id]
+    [pathname, org_id, postsBase]
   );
 }
 

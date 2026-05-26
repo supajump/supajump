@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import PostEditor from '@features/posts/post-editor';
 import { api } from '@/queries';
+import { DashboardShell } from '@/components/dashboard-shell';
+import { DashboardHeader } from '@/components/dashboard-header';
 
 export default async function Page({
   params,
@@ -18,13 +20,13 @@ export default async function Page({
   const post = await api.posts.getById(supabase, postId);
 
   if (!post) {
-    return <div className='p-6'>Post not found</div>;
+    notFound();
   }
 
   return (
-    <div className='p-6'>
-      <h1 className='mb-4 text-2xl font-bold'>{post.title}</h1>
+    <DashboardShell>
+      <DashboardHeader heading={post.title ?? 'Post'} headingLevel={1} />
       <PostEditor postId={post.id} initialContent={post.content} />
-    </div>
+    </DashboardShell>
   );
 }

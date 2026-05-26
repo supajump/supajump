@@ -41,10 +41,12 @@ async function deletePost(postId: string, supabase: SupabaseClient) {
 export type Post = {
   id: string
   title: string | null
+  org_id: string
+  team_id: string
 }
 
 interface PostOperationsProps {
-  post: Pick<Post, "id" | "title">
+  post: Pick<Post, "id" | "title" | "org_id" | "team_id">
 }
 
 export function PostOperations({ post }: PostOperationsProps) {
@@ -62,7 +64,10 @@ export function PostOperations({ post }: PostOperationsProps) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem>
-            <Link href={`/app/editor/posts/${post.id}`} className="flex w-full">
+            <Link
+              href={`/app/${post.org_id}/${post.team_id}/posts/${post.id}`}
+              className="flex w-full"
+            >
               Edit
             </Link>
           </DropdownMenuItem>

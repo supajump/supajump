@@ -13,5 +13,12 @@ export default function PostsTable({
 }) {
   const { data = [] } = usePosts(orgId, teamId)
 
-  return <DataTable columns={columns} data={data as Post[]} org_id={orgId} />
+  return (
+    <DataTable
+      columns={columns}
+      data={data as Post[]}
+      org_id={orgId}
+      team_id={teamId}
+    />
+  )
 }

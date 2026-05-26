@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/card';
 import { CalendarIcon, FileTextIcon } from 'lucide-react';
 import { formatPostDate } from './format-post-date';
+import { getPlainTextFromPostContent } from './parse-editor-content';
 
 interface RecentPostsClientProps {
   orgId: string;
@@ -28,7 +29,11 @@ export default function RecentPostsClient({
   }
 
   if (error) {
-    return <div>Error loading posts</div>;
+    return (
+      <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        Error loading posts: {error.message}
+      </div>
+    );
   }
 
   const getStatusColor = (status: string) => {
@@ -55,7 +60,8 @@ export default function RecentPostsClient({
     }
   };
 
-  const truncateContent = (content: string, maxLength: number = 150) => {
+  const truncateContent = (rawContent: string, maxLength: number = 150) => {
+    const content = getPlainTextFromPostContent(rawContent);
     if (content.length <= maxLength) return content;
     return content.substring(0, maxLength) + '...';
   };

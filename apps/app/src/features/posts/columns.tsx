@@ -12,11 +12,18 @@ export const columns: ColumnDef<Post>[] = [
   {
     accessorKey: "title",
     header: "Title",
-    cell: ({ row }) => (
-      <Link href={`./${row.original.id}`} className="underline">
-        {row.getValue("title") as string}
-      </Link>
-    ),
+    cell: ({ row, table }) => {
+      const meta = table.options.meta
+      const href =
+        meta?.org_id && meta?.team_id
+          ? `/app/${meta.org_id}/${meta.team_id}/posts/${row.original.id}`
+          : `./${row.original.id}`
+      return (
+        <Link href={href} className="underline">
+          {row.getValue("title") as string}
+        </Link>
+      )
+    },
   },
   {
     accessorKey: "post_status",

@@ -22,7 +22,10 @@ async function getPost(supabase: SupabaseClient<Database>, postId: string) {
     .select('*')
     .eq('id', postId)
     .single()
-  if (error) throw new Error(error.message)
+  if (error) {
+    if (error.code === 'PGRST116') return null
+    throw new Error(error.message)
+  }
   return data
 }
 
@@ -53,11 +56,15 @@ async function updatePostContent(
   postId: string,
   content: string
 ) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('posts')
     .update({ content })
     .eq('id', postId)
+    .select('id')
+    .single()
   if (error) throw new Error(error.message)
+  if (!data) throw new Error('Post was not updated')
+  return data
 }
 
 export const posts = {

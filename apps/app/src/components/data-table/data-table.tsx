@@ -21,6 +21,7 @@ declare module "@tanstack/react-table" {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface TableMeta<TData extends RowData> {
     org_id?: string
+    team_id?: string
   }
 }
 
@@ -28,6 +29,7 @@ interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
   org_id: string
+  team_id?: string
   onRowClick?: (row: TData) => void
 }
 
@@ -35,13 +37,14 @@ export function DataTable<TData, TValue>({
   columns,
   data,
   org_id,
+  team_id,
   onRowClick,
 }: DataTableProps<TData, TValue>) {
   const table = useReactTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    meta: { org_id },
+    meta: { org_id, team_id },
   })
 
   return (
