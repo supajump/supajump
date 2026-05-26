@@ -1,8 +1,13 @@
 {
-  "name": "supajump",
+  "name": "workclear",
   "version": "0.3.2",
   "private": true,
-  "description": "Multi-tenant SaaS Starter Kit Monorepo",
+  "description": "WorkClear — contractor compliance SaaS (Supajump monorepo)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sagittaris/workclear.git"
+  },
+  "homepage": "https://github.com/sagittaris/workclear#readme",
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",

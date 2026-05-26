@@ -2,6 +2,24 @@
 
 Local setup, environment configuration, and day-to-day development workflows.
 
+**Repository:** https://github.com/sagittaris/workclear — see [`REPOSITORY.md`](REPOSITORY.md) for remotes, PR workflow, and Vercel.
+
+---
+
+## Git remotes
+
+```bash
+git remote -v
+# origin    https://github.com/sagittaris/workclear.git (fetch/push)
+# upstream  https://github.com/supajump/supajump.git (optional)
+```
+
+```bash
+git remote set-url origin https://github.com/sagittaris/workclear.git
+```
+
+Open pull requests on **`sagittaris/workclear`**, not the upstream `supajump` org repo.
+
 ---
 
 ## Prerequisites

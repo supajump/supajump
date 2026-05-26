@@ -110,6 +110,7 @@ WorkClear builds **on top of** Supajump, not from scratch. The following infrast
 | [`BILLING-SETUP.md`](BILLING-SETUP.md) | Stripe configuration |
 | [`AGENT-WORKFLOW.md`](AGENT-WORKFLOW.md) | AI development workflow |
 | [`QA-CHECKLIST.md`](QA-CHECKLIST.md) | Pre-release QA |
+| [`REPOSITORY.md`](REPOSITORY.md) | Git remotes, PR target, Vercel policy |
 
 ### What WorkClear Must Build
 

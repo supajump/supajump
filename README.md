@@ -22,6 +22,18 @@ This repository contains the WorkClear product layer — vendor registry, docume
 | [`docs/BILLING-SETUP.md`](docs/BILLING-SETUP.md) | Stripe configuration guide |
 | [`docs/AGENT-WORKFLOW.md`](docs/AGENT-WORKFLOW.md) | AI-assisted development guide |
 | [`docs/QA-CHECKLIST.md`](docs/QA-CHECKLIST.md) | Pre-release manual QA |
+| [`docs/REPOSITORY.md`](docs/REPOSITORY.md) | Git remotes, PRs, Vercel policy |
+
+---
+
+## Repository
+
+| | |
+|--|--|
+| **GitHub** | https://github.com/sagittaris/workclear |
+| **Clone** | `git clone https://github.com/sagittaris/workclear.git` |
+
+Remotes, PR target, and Vercel policy: [`docs/REPOSITORY.md`](docs/REPOSITORY.md).
 
 ---
 
@@ -30,6 +42,8 @@ This repository contains the WorkClear product layer — vendor registry, docume
 See [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) for full setup.
 
 ```bash
+git clone https://github.com/sagittaris/workclear.git
+cd workclear
 pnpm install
 supabase start
 pnpm dev --filter @supajump/app
