@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { CalendarIcon, FileTextIcon } from 'lucide-react';
+import { formatPostDate } from './format-post-date';
 
 interface RecentPostsClientProps {
   orgId: string;
@@ -52,16 +53,6 @@ export default function RecentPostsClient({
       default:
         return <FileTextIcon className='h-4 w-4' />;
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   const truncateContent = (content: string, maxLength: number = 150) => {
@@ -121,7 +112,7 @@ export default function RecentPostsClient({
                 <div className='flex items-center gap-4 text-xs text-muted-foreground'>
                   <span className='flex items-center gap-1'>
                     <CalendarIcon className='h-3 w-3' />
-                    {formatDate(post?.created_at ?? '')}
+                    {formatPostDate(post?.created_at ?? '')}
                   </span>
                   <span className='capitalize'>{post.post_type}</span>
                 </div>

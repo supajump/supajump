@@ -4,6 +4,7 @@ import { type Database } from "@/lib/database.types"
 import { ColumnDef } from "@tanstack/react-table"
 import Link from "next/link"
 import { PostOperations } from "./post-operations"
+import { formatPostDate } from "./format-post-date"
 
 export type Post = Database["public"]["Tables"]["posts"]["Row"]
 
@@ -29,7 +30,7 @@ export const columns: ColumnDef<Post>[] = [
     accessorKey: "created_at",
     header: "Created",
     cell: ({ row }) =>
-      new Date(row.getValue("created_at") as string).toLocaleDateString(),
+      formatPostDate(row.getValue("created_at") as string),
   },
   {
     id: "actions",

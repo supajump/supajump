@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
@@ -32,7 +31,6 @@ export function CreatePostModal({ orgId, teamId }: CreatePostModalProps) {
   const [content, setContent] = useState('');
   const [postType, setPostType] = useState('post');
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
   const queryClient = useQueryClient();
   const supabase = createBrowserClient();
   const generateSlug = (t: string) =>
@@ -63,7 +61,6 @@ export function CreatePostModal({ orgId, teamId }: CreatePostModalProps) {
       setContent('');
       setPostType('post');
       setOpen(false);
-      router.refresh();
     },
     onError: (err: Error) => setError(err.message),
   });
